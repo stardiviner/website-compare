@@ -1,0 +1,3269 @@
+#+TITLE: website-comapre
+
+* INPROGRESS [#A] website-compare [37/51]
+  DEADLINE: <2018-09-26 Wed> SCHEDULED: <2018-09-22 Sat>
+   :LOGBOOK:
+   CLOCK: [2018-11-13 Tue 16:39]--[2018-11-13 Tue 16:43] =>  0:04
+   CLOCK: [2018-11-12 Mon 15:30]--[2018-11-12 Mon 15:31] =>  0:01
+   - State "INPROGRESS" from "PROJECT"    [2018-09-24 Mon 19:33] \\
+     基本函数用以获取页面的内容
+   CLOCK: [2018-09-24 Mon 15:42]--[2018-09-27 Thu 10:09] => 66:27
+   CLOCK: [2018-09-23 Sun 16:50]--[2018-09-23 Sun 19:57] =>  3:07
+   - State "PROJECT"    from              [2018-09-23 Sun 16:48]
+   :END:
+
+[[file:~/Documents/learning/Clojure/website-compare/project.clj][website-compare/project.clj]]
+
+#+BEGIN: clocktable :scope subtree :maxlevel 10
+#+CAPTION: Clock summary at [2018-11-22 Thu 21:30]
+| Headline                                                             | Time    |         |         |         |      |      |
+|----------------------------------------------------------------------+---------+---------+---------+---------+------+------|
+| *Total time*                                                           | *4d 8:53* |         |         |         |      |      |
+|----------------------------------------------------------------------+---------+---------+---------+---------+------+------|
+| \_  写一个简单的爬虫加交叉对比的脚本来比较新旧网站的内容差别 [37/51] |         | 4d 8:53 |         |         |      |      |
+| \_    代码架构                                                       |         |         |    0:29 |         |      |      |
+| \_    website 新旧网站使用相同API，不同的实现 [2/2]                  |         |         |    3:55 |         |      |      |
+| \_      website-old.clj HTML elements                                |         |         |         |    0:03 |      |      |
+| \_      website-new.clj HTML elements                                |         |         |         |    0:03 |      |      |
+| \_    crawler.clj 获取所有文章的方法 [15/17]                         |         |         | 1d 2:11 |         |      |      |
+| \_      benchmarking the HTTP URL request...                         |         |         |         |    1:39 |      |      |
+| \_      按照网站的导航栏目录入口获取相应类目下的所有文章             |         |         |         | 1d 0:31 |      |      |
+| \_        old                                                        |         |         |         |         | 5:48 |      |
+| \_          get navigator bar links                                  |         |         |         |         |      | 2:39 |
+| \_          parse sub-nav page to get all listed...                  |         |         |         |         |      | 2:52 |
+| \_          iterate all result pages                                 |         |         |         |         |      | 0:17 |
+| \_        new                                                        |         |         |         |         | 2:03 |      |
+| \_          get navigator bar links                                  |         |         |         |         |      | 1:03 |
+| \_          parse sub-nav page to get all listed...                  |         |         |         |         |      | 0:09 |
+| \_          iterate all result pages                                 |         |         |         |         |      | 0:51 |
+| \_        benchmark new website two entry URL                        |         |         |         |         | 0:44 |      |
+| \_    crawler.clj 爬虫存储提取连接的数据库 [5/5]                     |         |         |    1:57 |         |      |      |
+| \_      Redis                                                        |         |         |         |    1:57 |      |      |
+| \_        extract all links in nav bar                               |         |         |         |         | 0:13 |      |
+| \_        save all links to Redis                                    |         |         |         |         | 1:00 |      |
+| \_    crawler.clj 爬取页面的内容 [3/6]                               |         |         |    0:49 |         |      |      |
+| \_      scrape the article                                           |         |         |         |    0:23 |      |      |
+| \_        old                                                        |         |         |         |         | 0:03 |      |
+| \_        new                                                        |         |         |         |         | 0:20 |      |
+| \_      process the crawled article content...                       |         |         |         |    0:26 |      |      |
+| \_        strip some special characters and spaces                   |         |         |         |         | 0:26 |      |
+| \_    store.clj 爬虫内容存储到数据库 [3/4]                           |         |         |    1:03 |         |      |      |
+| \_      SQLite                                                       |         |         |         |    1:03 |      |      |
+| \_        save title and content to SQLite                           |         |         |         |         | 0:16 |      |
+| \_    比较上传视频                                                   |         |         |    0:50 |         |      |      |
+| \_      检查视频是否可以播放 [4/5]                                   |         |         |         |    0:50 |      |      |
+#+END:
+
+* 新旧网站的基本信息
+
+- 新网站 http://www.sxszjzx.com, http://zjzx.sxsedu.net
+- 旧网站 http://www.sxti.zj.cn
+
+内网解析 http://www.sxszjzx.com/ 是解析到旧网站的。
+外网解析 http://www.sxszjzx.com/ 是解析到新网站的。
+如果你解析到外网，你需要修改DNS到 172.18.0.5
+
+** TODO [#A] 外网无法访问旧网站
+   DEADLINE: <2018-11-19 Mon>
+     :LOGBOOK:
+     - State "TODO"       from              [2018-11-18 Sun 12:05] \\
+       获得旧网站的IP，运行修改hosts的命令，看看外网能否访问。
+     :END:
+
+http://bbs.360.cn/thread-6776749-1-1.html
+
+Modify the host file:
+
+#+begin_src sh :dir /sudo::
+sudo echo "192.168.1.1 www.sxti.zj.cn" >> /etc/hosts
+#+end_src
+
+* DONE 代码架构
+  CLOSED: [2018-11-16 Fri 15:41]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2018-11-16 Fri 15:41]
+    CLOCK: [2018-11-16 Fri 07:30]--[2018-11-16 Fri 07:59] =>  0:29
+    - State "TODO"       from              [2018-11-16 Fri 07:30]
+    :END:
+
+#+begin_src plantuml :dir "data/images" :file website-compare-architecture.png
+skinparam defaultFontName DejaVu Sans Mono
+skinparam handwritten true
+
+title website-compare architecture
+
+note left: "website_old.clj"
+note right: "website_new.clj"
+
+(*)--> "crawler.clj: crawl old/new websites."
+--> "store.clj: store links to Redis as sequence, save article into SQLite database."
+--> "validate.clj: validate article multimedia links like images and videos."
+--> "compare.clj: compare article text with SimHash algorithm."
+--> "result-process.clj: process result."
+--> "core.clj: display the invalid, missing and different articles."
+#+end_src
+
+#+RESULTS[<2018-11-18 11:30:27> df5e1300f872bdf9f8381219103fc22199dd5676]:
+[[file:data/images/website-compare-architecture.png]]
+
+* DONE website 新旧网站使用相同API，不同的实现 [2/2]
+  CLOSED: [2018-11-19 Mon 19:11]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2018-11-19 Mon 19:11]
+    CLOCK: [2018-11-17 Sat 09:42]--[2018-11-17 Sat 13:15] =>  3:33
+    CLOCK: [2018-11-16 Fri 16:08]--[2018-11-16 Fri 16:24] =>  0:16
+    - State "TODO"       from              [2018-11-13 Tue 10:25]
+    :END:
+
+Use different namespace, same API function names.
+
+** DONE website-old.clj HTML elements
+   CLOSED: [2018-11-19 Mon 19:05]
+   :LOGBOOK:
+   CLOCK: [2018-11-19 Mon 19:08]--[2018-11-19 Mon 19:11] =>  0:03
+   - State "DONE"       from "TODO"       [2018-11-19 Mon 19:05]
+   - State "TODO"       from              [2018-11-18 Sun 14:31] \\
+     get HTML elements structure
+   :END:
+
+*** nav
+
+#+begin_src clojure
+(def selector-nav [:div.head_3 :ul#head_nav])
+#+end_src
+
+#+begin_src html
+<div class="head_3">
+  <ul id="head_nav">
+    
+  <li class="nav_active"><a href="/"><span>首页</span></a></li>
+  <li class=""><a href="javascript:void(0)"><span>学校概况</span></a>
+    <ul>
+      <li><a href="/html/school/about.html">学校简介</a></li>
+      <li><a href="/e/action/ListInfo/?classid=13">现任领导</a></li>
+      <li><a href="/e/action/ListInfo/?classid=283">名优教师</a></li>
+      <li><a href="/html/school/office.html">处室联系</a></li>
+      <li><a href="/e/action/ListInfo/?classid=14">校园风景</a></li>
+      <li><a href="/e/action/ListInfo/?classid=35">楼层分布</a></li>
+      <li><a href="/html/school/map.html">交通地图</a></li>
+      <li><a href="/e/action/ListInfo/?classid=15">学校荣誉</a></li>
+      <li><a href="/e/action/ListInfo/?classid=377">媒体关注</a></li>
+    </ul>
+  </li>
+  <li class=""><a href="javascript:void(0)"><span>新闻频道</span></a>
+    <ul>
+      <li><a href="/e/action/ListInfo/?classid=33">校园新闻</a></li>
+      <li><a href="/e/action/ListInfo/?classid=34">系部新闻</a></li>
+      <li><a href="/e/action/ListInfo/?classid=7">对外交流</a></li>
+      <li><a href="/e/action/ListInfo/?classid=8">学校荣誉</a></li>
+      <li><a href="/e/action/ListInfo/?classid=9">师生荣誉</a></li>
+      <li><a href="/e/action/ListInfo/?classid=10">校园视频</a></li>
+      <li><a href="/e/action/ListInfo/?classid=11">二周安排</a></li>
+      <li><a href="/e/action/ListInfo/?classid=12">每周寄语</a></li>
+    </ul>
+  </li>
+  <li><a href="javascript:void(0)"><span>下载频道</span></a>
+    <ul>
+      <li><a href="/e/action/ListInfo/?classid=16">党政办</a></li>
+      <li><a href="/e/action/ListInfo/?classid=17">教务处</a></li>
+      <li><a href="/e/action/ListInfo/?classid=18">德育团委</a></li>
+      <li><a href="/e/action/ListInfo/?classid=53">总务处</a></li>
+      <li><a href="/e/action/ListInfo/?classid=54">实习处</a></li>
+      <li><a href="/e/action/ListInfo/?classid=56">安保处</a></li>
+      <li><a href="/e/action/ListInfo/?classid=175">教科室</a></li>
+      <li><a href="/e/action/ListInfo/?classid=57">教学软件</a></li>
+      <li><a href="/e/action/ListInfo/?classid=58">其它</a></li>
+    </ul>
+  </li>
+  <li><a href="javascript:void(0)"><span>处室网站</span></a>
+    <ul>
+      <li><a href="/e/action/ListInfo/?classid=37">党政办</a></li>
+      <li><a href="/e/action/ListInfo/?classid=38">教务处</a></li>
+      <li><a href="/e/action/ListInfo/?classid=39">德育团委</a></li>
+      <li><a href="/e/action/ListInfo/?classid=40">总务处</a></li>
+      <li><a href="/e/action/ListInfo/?classid=41">实习处</a></li>
+      <li><a href="/e/action/ListInfo/?classid=43">安保处</a></li>
+      <li><a href="/e/action/ListInfo/?classid=104">教科室</a></li>
+      <li><a href="/e/action/ListInfo/?classid=44">服务公司</a></li>
+    </ul>
+  </li>
+  <li><a href="javascript:void(0)"><span>系部网站</span></a>
+    <ul>
+      <li><a href="/e/action/ListInfo/?classid=46">艺术设计系</a></li>
+      <li><a href="/e/action/ListInfo/?classid=47">机械电子系</a></li>
+      <li><a href="/e/action/ListInfo/?classid=49">财会信息系</a></li>
+      <li><a href="/e/action/ListInfo/?classid=50">商贸旅游系</a></li>
+      <li><a href="/e/action/ListInfo/?classid=51">建筑工程系</a></li>
+      <li><a href="/e/action/ListInfo/?classid=52">新疆学部</a></li>
+    </ul>
+  </li>
+  <li><a href="javascript:void(0)"><span style="color: #ff0000">招生宣传</span></a>
+    <ul>
+      <li><a href="/html/recruit/zsbm.html">招生报名</a></li>
+      <li><a href="/html/recruit/plan.html">招生简章</a></li>
+      <li><a href="/html/recruit/pro.html">专业介绍</a></li>
+      <li><a href="/html/recruit/faq.html">热点问答</a></li>
+      <li><a href="/html/recruit/xysh.html">校园生活</a></li>
+    </ul>
+  </li>
+  <li><a href="javascript:void(0)"><span>校务公开</span></a>
+    <ul>
+      <li><a href="/html/public/org.html">组织架构</a></li>
+      <li><a href="/e/action/ListInfo/?classid=19">办学规划</a></li>
+      <li><a href="/e/action/ListInfo/?classid=20">管理制度</a></li>
+      <li><a href="/e/action/ListInfo/?classid=21">阳光收费</a></li>
+      <li><a href="/e/action/ListInfo/?classid=22">评职评优</a></li>
+      <li><a href="/e/action/ListInfo/?classid=23">招标公告</a></li>
+      <li><a href="/e/action/ListInfo/?classid=390">质量报告</a></li>
+    </ul>
+  </li>
+  <li><a href="javascript:void(0)"><span>专题网站</span></a>
+    <ul>
+      <li><a href="/html/exemplary/about.html"><span>示范校专题网</span></a></li>
+      <li><a href="/htmlhomepage/yiheliangyi/about.html">一核二翼专题网</a></li>
+      <li><a href="/e/action/ListInfo/?classid=364">群众路线活动</a></li>
+      <li><a href="/e/action/ListInfo/?classid=371">旅游职教集团</a></li>
+      <li><a href="/e/action/ListInfo/?classid=39">德 育 品 牌</a></li>
+      <li><a href="http://server2.sxszjzx.com/~jwc">精 品 课 程</a></li>
+      <li><a href="/e/action/ListInfo/?classid=379">信 息 中 心</a></li> 
+    </ul>
+  </li>
+  <li><a target="_blank" href="/e/action/ListInfo/?classid=387"><span style="color: #ff0000">党建工作</span></a></li>
+
+  </ul>
+</div>
+#+end_src
+
+*** content
+
+#+begin_src clojure :eval no
+(def selector-content [:div.page_1])
+#+end_src
+
+**** sidebar
+
+http://www.sxti.zj.cn/html/school/about.html
+
+#+begin_src clojure :eval no
+(def selector-sidebar [:div.page_left :div.pleft_t3])
+#+end_src
+
+#+begin_src html
+<div class="page_left">
+  ..
+
+  <div class="pleft_t2">
+    <ul class="pleft_t3">
+      
+      <li><a href="/html/school/about.html">学校简介</a></li>
+      <li><a href="/e/action/ListInfo/?classid=13">现任领导</a></li>
+      <li><a href="/e/action/ListInfo/?classid=283">名优教师</a></li>
+      <li><a href="/html/school/office.html">处室联系</a></li>
+      <li><a href="/e/action/ListInfo/?classid=14">校园风景</a></li>
+      <li><a href="/e/action/ListInfo/?classid=35">楼层分布</a></li>
+      <li><a href="/html/school/map.html">交通地图</a></li>
+      <li><a href="/e/action/ListInfo/?classid=15">学校荣誉</a></li>
+      <li><a href="/e/action/ListInfo/?classid=377">媒体关注</a></li>
+
+    </ul>
+  </div>
+  
+</div>
+#+end_src
+
+**** article
+
+#+begin_src clojure :eval no
+(def selector-article [:div.page_right :div.pright_t3])
+#+end_src
+
+#+begin_src html
+<div class="page_right">
+  <!-- title -->
+  <div class="pright_t3">
+    <!-- article -->
+    <div class="pright_t4">
+      
+    </div>
+  </div>
+</div>
+#+end_src
+
+** DONE website-new.clj HTML elements
+   CLOSED: [2018-11-19 Mon 19:11]
+   :LOGBOOK:
+   - State "DONE"       from "TODO"       [2018-11-19 Mon 19:11]
+   - State "TODO"       from "DONE"       [2018-11-18 Sun 14:30] \\
+     write corresponding Clojure Enlive CSS selector.
+   - State "DONE"       from "TODO"       [2018-11-18 Sun 14:30]
+   CLOCK: [2018-11-18 Sun 14:27]--[2018-11-18 Sun 14:30] =>  0:03
+   - State "TODO"       from              [2018-11-18 Sun 14:27] \\
+     get HTML elements structure
+   :END:
+
+*** nav
+
+http://www.sxszjzx.com/
+
+#+begin_src clojure
+(def selector-nav [:div.nav])
+#+end_src
+
+#+begin_src html
+<div class="nav">
+  <div class="siteWidth">
+
+    <ul id="mainNav" class="mainNav">
+    <li class="li1 first1 on1" id="li-home">
+      <h3 class="h1">
+        <a class="a1" href="/">网站首页</a>
+      </h3>
+    </li>
+
+    <li class="li1 hasUl1" id="li-xygk">
+      <h3 class="h1">
+        <a class="a1" href="/xygk/xyjj">学院概况</a></h3>
+      <ul class="ul1" style="display: none;">
+        
+        <li class="li2 first2">
+          <h3 class="h2"><a class="a2" href="/xygk/xyjj">学院简介</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xygk/xrld">现任领导</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xygk/zzjg">组织架构</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xygk/cslx">处室联系</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xygk/xyfg">校园风光</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xygk/xyry">学院荣誉</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xygk/lsyg">历史沿革</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xygk/lcfb">楼层分布</a></h3>
+        </li>
+        <li class="li2 last2">
+          <h3 class="h2"><a class="a2" href="/xygk/jtdt">交通地图</a></h3>
+        </li>
+
+      </ul>
+    </li>
+    <li class="li1 hasUl1" id="li-xydt">
+      <h3 class="h1">
+        <a class="a1" href="/xydt">学院动态</a></h3>
+      <ul class="ul1" style="display: none;">
+        
+        <li class="li2 first2">
+          <h3 class="h2"><a class="a2" href="/xydt/xyxw" target="_blank">学院新闻</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xydt/xbxw">系部新闻</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xydt/mtjj">媒体聚焦</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xydt/xyry1">学院荣誉</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xydt/jsry">教师荣誉</a></h3>
+        </li>
+        <li class="li2 last2">
+          <h3 class="h2"><a class="a2" href="/xydt/xsry">学生荣誉</a></h3>
+        </li>
+
+      </ul>
+    </li>
+    <li class="li1 hasUl1" id="li-xbjs">
+      <h3 class="h1">
+        <a class="a1" href="/xbjs">系部建设</a></h3>
+      <ul class="ul1" style="display: none;">
+        
+        <li class="li2 first2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/xbjs/yssjx">艺术设计系</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/xbjs/jxdzx">机械电子系</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/xbjs/chxxx">财会信息系</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/xbjs/smlyx">商贸旅游系</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/xbjs/jzgcx">建筑工程系</a></h3>
+        </li>
+        <li class="li2 last2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/xbjs/xjxb">新疆学部</a></h3>
+        </li>
+
+      </ul>
+    </li>
+    <li class="li1 hasUl1" id="li-zsjy">
+      <h3 class="h1">
+        <a class="a1" href="/zsjy/zsbm">招生就业</a></h3>
+      <ul class="ul1" style="display: none;">
+
+        <li class="li2 first2">
+          <h3 class="h2"><a class="a2" href="/zsjy/zsbm">招生报名</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/zsjy/zsjz">招生简章</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/zsjy/zyjs6">专业介绍</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/zsjy/rdwd">热点问答</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/zsjy/xysh">校园生活</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/zsjy/zxbm">在线报名</a></h3>
+        </li>
+        <li class="li2 last2">
+          <h3 class="h2"><a class="a2" href="/zsjy/jyxx">就业信息</a></h3>
+        </li>
+
+      </ul>
+    </li>
+    <li class="li1 hasUl1" id="li-ztlm">
+      <h3 class="h1">
+        <a class="a1" href="/ztlm">专题栏目</a></h3>
+      <ul class="ul1" style="display: none;">
+
+        <li class="li2 first2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/ztlm/sfxjs">示范校建设</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/ztlm/smgc">三名工程</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/ztlm/yheyzt">一核二翼专题</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/ztlm/qzlxhd">群众路线活动</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/ztlm/lyzjjt">旅游职教集团</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/ztlm/dypp">德育品牌</a></h3>
+        </li>
+        <li class="li2 hasUl2">
+          <h3 class="h2"><a class="a2" href="/ztlm/xysp">校园视频</a></h3>
+        </li>
+        <li class="li2 last2">
+          <h3 class="h2"><a class="a2" href="http://server2.sxszjzx.com/~jwc/" target="_blank">精品课程</a></h3>
+        </li>
+
+      </ul>
+    </li>
+    <li class="li1 hasUl1" id="li-xxgk">
+      <h3 class="h1">
+        <a class="a1" href="/xxgk">校务公开</a></h3>
+      <ul class="ul1" style="display: none;">
+        
+        <li class="li2 first2">
+          <h3 class="h2"><a class="a2" href="/xxgk/bxgh">办学规划</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xxgk/glzd">公示公告</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xxgk/ygsf">阳光收费</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xxgk/pzpy">评职评优</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xxgk/zbgg">招标公告</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/xxgk/zlbg">质量报告</a></h3>
+        </li>
+        <li class="li2 last2">
+          <h3 class="h2"><a class="a2" href="/xxgk/zyxz">资源下载</a></h3>
+        </li>
+
+      </ul>
+    </li>
+    <li class="li1 last1 hasUl1" id="li-djgz">
+      <h3 class="h1">
+        <a class="a1" href="/djgz">党建工作</a></h3>
+      <ul class="ul1" style="display: none;">
+        
+        <li class="li2 first2">
+          <h3 class="h2"><a class="a2" href="/djgz/djdt">党建动态</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/djgz/lzzl">廉政专栏</a></h3>
+        </li>
+        <li class="li2">
+          <h3 class="h2"><a class="a2" href="/djgz/lqhd">亮旗行动</a></h3>
+        </li>
+        <li class="li2 last2">
+          <h3 class="h2"><a class="a2" href="/djgz/xxzl">学习资料</a></h3>
+        </li>
+
+      </ul>
+    </li>
+  </ul>
+
+  <script type="text/javascript">
+    (function () {
+    var navST;
+    var navST1;
+    var name = 'mainNav';
+    var t = 200;
+    var type = 1;
+    var removeOn = 'False';
+    var effect = 'slideDown';
+    var appendItem = '#';
+    var li = "#" + name + " li";
+    var index = 0;
+
+    if (!$("#" + name + " .li1").hasClass("on1")) {
+    $("#" + name + " .li1").first().addClass("on1");
+    } //默认第一个加.on1类
+    index = $("#" + name + " .li1").index($("#" + name + " .on1"));
+
+    //鼠标离开导航后，回复默认.on1类位置
+    $("#" + name)
+    .hover(
+    function () {
+    if (navST1 != null) {
+    clearTimeout(navST1);
+    }
+    },
+    function () {
+    navST1 = setTimeout(function () {
+    $("#" + name + " .li1").removeClass("on1").eq(index).addClass("on1");
+    },
+    500);
+    }
+    );
+
+    if (type == '1') {
+    li = "#" + name + " .li1";
+    }
+    if (appendItem != '#') { //插入内容
+    var appendHtml = $(appendItem).html();
+    $(li).first().append(appendHtml);
+    $(appendItem).remove();
+    }
+
+    if (type == '3') {
+    $("#" + name + " .on1").find("ul").first().show();
+    }
+
+    $(li)
+    .hover(function () {
+    var curItem = $(this);
+    var onNum = (curItem.attr("class").split(" "))[0].replace("li", "");
+    $(li).removeClass("on" + onNum);
+    curItem.addClass("on" + onNum);
+    navST = setTimeout(function () { //延时触发
+
+    if ($("ul:first", curItem).css("display") != "block") {
+    $(li + " .ul" + onNum).hide();
+    if (effect == 'fade') {
+    $("ul:first", curItem).fadeIn(t);
+    } else {
+    $("ul:first", curItem).slideDown(t);
+    }
+    };
+    navST = null;
+    },
+    t);
+    },
+    function () {
+    if (navST != null) {
+    clearTimeout(navST);
+    }
+    if (type == '1' || type == '2') {
+    if (effect == 'fade') {
+    $(this).find("ul").first().fadeOut(t);
+    } else {
+    $(this).find("ul").first().slideUp(t);
+    }
+    }
+    if (removeOn == 'True') {
+    $(this).removeClass("on1");
+    }
+    },
+    t); //end hover
+    })()
+  </script>
+
+</div>
+</div>
+#+end_src
+
+#+begin_src clojure
+
+#+end_src
+
+*** content
+
+#+begin_src clojure :eval no
+(def selector-content [:div#content])
+#+end_src
+
+#+begin_src html
+<div id="content">
+  ....
+</div>
+#+end_src
+
+**** sidebar
+
+http://www.sxszjzx.com/xygk/xyjj
+
+#+begin_src clojure :eval no
+(def selector-sidebar [:aside.side])
+#+end_src
+
+#+begin_src html
+<aside class="side">
+  
+  <div id="sideMenu">
+    <div class="hd">
+      <h3>学院概况</h3>
+    </div>
+    <div class="bd">
+      <ul class="menuList">
+        <li class="on"><a href="/xygk/xyjj">学院简介</a></li>
+        <li><a href="/xygk/xrld">现任领导</a></li>
+        <li><a href="/xygk/zzjg">组织架构</a></li>
+        <li><a href="/xygk/cslx">处室联系</a></li>
+        <li><a href="/xygk/xyfg">校园风光</a></li>
+        <li><a href="/xygk/xyry">学院荣誉</a></li>
+        <li><a href="/xygk/lsyg">历史沿革</a></li>
+        <li><a href="/xygk/lcfb">楼层分布</a></li>
+        <li><a href="/xygk/jtdt">交通地图</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="sideRmph" class="sideBox">
+    <div class="hd">
+      <h3>热点资讯</h3>
+    </div>
+    <div class="bd">
+      <ul class="infoListB">
+
+        <li class="noData">暂无资料</li>
+      </ul>
+    </div>
+  </div>
+  
+</aside>
+#+end_src
+
+**** article
+
+http://www.sxszjzx.com/xygk/xyjj
+
+#+begin_src clojure :eval no
+(def selector-article [:div.mainContent])
+#+end_src
+
+#+begin_src html
+<div class="mainContent">
+  
+  <div class="mHd">
+    <div class="path">
+
+      <em>您的位置：</em><a href="/">首页</a>
+      &gt;<a href="/xygk/xyjj">学院概况</a>&gt;<a href="/xygk/xyjj">学院简介</a></div>
+    <h3>学院简介</h3>
+  </div>
+  <div class="mBd">
+    <!-- 正文内容 S -->
+    <div class="articleCon">
+      <div class="printArea" data-power-area="content">
+        <!-- 标题 -->
+        <h3 class="title">学院简介</h3>
+        <div class="property">
+          <span>【字体：<a href="javascript:;" data-power-command="reducefont">小</a> <a href="javascript:;" data-power-command="enlargefont">大</a>】</span>
+        </div>
+        <!-- 正文 -->
+        <div class="conTxt" data-power-defaultfontsize="16" data-power-defaultlineheight="2" data-power-imgmaxwidth="800">
+          <div><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">绍兴技师学院（筹）绍兴市职教中心</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">创办于</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">1958</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年，是以培养现代服务业和先进制造业技能人才为主，集学历教育、职业培训、技能鉴定为一体的综合性职业学校。</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">1996</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年被评为首批国家级重点职业学校，</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">2013</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年被确定为首批国家中等职业教育改革发展示范学校。</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;　　学校实行“</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">以德治校、技能强校、科研兴校、品牌立校</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">”的办学方针，以“</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">身正技高</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">”为校风，办学成果丰硕，</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">2007</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年被评为全国教育系统先进集体，</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">2012</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年列全省</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">445</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">所中职学校综合实力第五名，</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">2014</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年获“</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">全国职业教育先进集体</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">”称号。</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;　　学校现有学制教育在校生</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">4200</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">余人，年职业培训</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">5000</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">人次以上。占地</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">139.3</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">亩，建筑面积</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">75498</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">平方米。建立</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">艺术设计系、商贸旅游系、财会信息系、机械电子系、建筑工程系</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">和</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">新疆学部</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">六大类共</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">20</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">多个专业，建有</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">95</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">个校内实训实习场所，</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">105</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">家以上稳定的校外实习基地。学校于</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">2011</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年承办新疆中职班，现有在校生</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">170</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">人；</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">2014</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年首届毕业生顺利毕业，其中</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">张浩琛同学</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">获内地西藏新疆中职班单招单考全省第一名。</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;　　学校现有教职工</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">283</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">人，师资力量雄厚。有首届中国职业院校教学名师</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">1</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">人，首批浙派名校长</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">1</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">人，省名师培养对象</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">3</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">人，浙江省特级教师</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">1</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">名，浙江省技术能手</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">12</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">名，省市、市属级教坛新秀</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">17</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">名,市属级以上学科带头人</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">13</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">名。</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;　　教科研成果显著。自</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">1999</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">年起在浙江省四年一届的职业教育教学成果奖评比中，连续四届评为一等奖。其中</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">《中职学校基于“一核两翼”的“技能领雁工程”建设的探索与实践》</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">获国家级教学成果二等奖和浙江省第四届职业教育教学一等奖。</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;　　教育质量稳步提升。学校创新共育人才培养新模式，积极推进教学手段和方法改革。近几年全国中职学校技能大赛中，学生共获得</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">17金14银5铜</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">的优异成绩。在第十二届全国中等职业学校“文明风采”竞赛活动中荣获优秀组织奖</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;　　校企合作不断深化。学校把创新驱动放在更为突出的位置，做好产教融合改革课题，积极培育校企合作新生态，牵头组建2个职教集团，创建3个教学工厂，成立3个校企合作委员会，与绍兴大型企业签订订单班与现代学徒制协议，致力培养</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">一专多能、技能多元、复合就业</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">的技能人才，毕业生就业率一直保持在98%以上。建立1个无界化创新创业园区，着力开展创业创新教育，连续三年获得省中职学生创新创业大赛一等奖，已有</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">10项产品获得国家专利</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">。</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;　　在绍兴市委市政府的领导下，2016年6月，学校正式挂筹</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">浙江绍兴技师学院</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">。学校将按照“</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">全市领航、全省一流、全国示范</strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">” 的办学目标全面建设技师学院，为地方技工教育、中等职业教育谱写出崭新的篇章，为绍兴经济社会发展作出更大的贡献。</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">校训 ：&nbsp;</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">励志 精业 务实 创新<br style="padding: 0px; margin: 0px; outline: none"></strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">校风 ：&nbsp;</span><strong style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">身正 技高<br style="padding: 0px; margin: 0px; outline: none"></strong><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">&nbsp;</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">学校地址：浙江省绍兴经济开发区平江路 579 号　　邮编： 312000</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">电话： 0575—88643632 88651012 　　培训部电话： 0575—85128598</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">传真： 0575—88614351</span><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">网址：</span><a style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">Http://www.sxszjzx.com</a><br style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)"><span style="color: #333333; font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; background-color: #FFFFFF">E-mail：</span><a style="padding: 0px; margin: 0px; outline: none; color: rgb(51, 51, 51); font-family: &quot;Microsoft Yahei&quot;; font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255)">sxsjgxx@163.com</a></div><p><br></p>
+        </div>
+      </div>
+      <div class="userControl">
+        
+
+        <div class="bdsharebuttonbox"><a href="#" class="bds_more" data-cmd="more"></a><a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a><a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a><a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博"></a><a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网"></a><a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a></div>
+        <script>
+          window._bd_share_config = {
+          "common": {
+          "bdSnsKey": {},
+          "bdText": "",
+          "bdMini": "2",
+          "bdMiniList": false,
+          "bdPic": "",
+          "bdStyle": "1",
+          "bdSize": "24"
+          },
+          "share": {}
+          };
+          with (document) {
+          0[(getElementsByTagName('head')[0] || body)
+          .appendChild(createElement('script'))
+          .src = 'http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion=' +
+          ~(-new Date() / 36e5)];
+          }
+        </script>
+      </div>
+    </div>
+    <!-- 正文内容 E -->
+  </div>
+  
+</div>
+#+end_src
+
+* TODO crawler.clj 获取所有文章的方法 [15/17]
+  :LOGBOOK:
+  CLOCK: [2018-11-18 Sun 12:07]--[2018-11-18 Sun 12:08] =>  0:01
+  - State "TODO"       from              [2018-11-13 Tue 10:25]
+  :END:
+
+** DONE benchmarking the HTTP URL request speed [2/2]
+   CLOSED: [2018-11-19 Mon 18:04]
+     :LOGBOOK:
+     - State "DONE"       from "TODO"       [2018-11-19 Mon 18:04]
+     CLOCK: [2018-11-18 Sun 12:43]--[2018-11-18 Sun 14:22] =>  1:39
+     - State "TODO"       from              [2018-11-18 Sun 12:43]
+     :END:
+
+- [X] [[file:~/Org/Wiki/Computer%20Technology/Programming/Programming%20Languages/Clojure/Data/Clojure%20Packages/Enlive.org::*Benchmarking%20the%20HTTP%20requests%20speed][record to Org Enlive.org]]
+- [X] [[file:~/Documents/learning/Clojure/website-compare/src/website_compare/crawler.clj::(defn%20html-extract][optimize code in here]]
+
+*** clj-http + enlive/html-snippet
+
+#+begin_src clojure :results output
+(require '[clj-http.client :as http])
+(require '[net.cgrand.enlive-html :as html])
+(use 'criterium.core)
+
+(pr (quick-bench
+     (-> (http/get "https://www.baidu.com")
+         :body
+         html/html-snippet)))
+#+end_src
+
+#+RESULTS[<2018-11-19 17:54:33> e6cf6018ffec87fa66de0975bd965cc8ef4a311a]:
+: Evaluation count : 6 in 6 samples of 1 calls.
+:              Execution time mean : 260.639936 ms
+:     Execution time std-deviation : 74.939971 ms
+:    Execution time lower quantile : 161.264308 ms ( 2.5%)
+:    Execution time upper quantile : 337.518891 ms (97.5%)
+:                    Overhead used : 36.702468 ns
+: nil
+
+*** enlive/html-resource + URL
+
+#+begin_src clojure :results output
+(require '[net.cgrand.enlive-html :as html])
+(import 'java.net.URL)
+(use 'criterium.core)
+
+(pr (quick-bench
+      (html/html-resource (URL. "https://www.baidu.com"))))
+#+end_src
+
+#+RESULTS[<2018-11-19 18:02:02> 4118c54e6df596109b79b6a991eba927ba240af8]:
+: Evaluation count : 18 in 6 samples of 3 calls.
+:              Execution time mean : 64.137600 ms
+:     Execution time std-deviation : 13.476096 ms
+:    Execution time lower quantile : 49.122882 ms ( 2.5%)
+:    Execution time upper quantile : 79.881576 ms (97.5%)
+:                    Overhead used : 36.702468 ns
+: nil
+
+** DONE 按照网站的导航栏目录入口获取相应类目下的所有文章 [9/9]
+   CLOSED: [2018-11-20 Tue 13:40]
+   :LOGBOOK:
+   CLOCK: [2018-11-22 Thu 20:19]--[2018-11-22 Thu 21:21] =>  1:02
+   CLOCK: [2018-11-22 Thu 15:22]--[2018-11-22 Thu 19:07] =>  3:45
+   - State "DONE"       from "TODO"       [2018-11-20 Tue 13:40]
+   CLOCK: [2018-11-19 Mon 19:15]--[2018-11-19 Mon 19:32] =>  0:17
+   CLOCK: [2018-11-14 Wed 10:07]--[2018-11-14 Wed 10:26] =>  0:19
+   CLOCK: [2018-11-14 Wed 08:36]--[2018-11-14 Wed 09:03] =>  0:27
+   CLOCK: [2018-11-12 Mon 21:15]--[2018-11-13 Tue 07:21] => 10:06
+   - State "TODO"       from              [2018-11-12 Mon 21:14]
+   :END:
+
+*** DONE old
+    CLOSED: [2018-11-20 Tue 20:13]
+    :LOGBOOK:
+    - State "DONE"       from              [2018-11-20 Tue 20:13]
+    :END:
+
+**** DONE get navigator bar links
+     CLOSED: [2018-11-20 Tue 10:50]
+       :LOGBOOK:
+       CLOCK: [2018-11-20 Tue 08:11]--[2018-11-20 Tue 10:50] =>  2:39
+       :END:
+
+ http://www.sxszjzx.com/html/school/about.html
+
+#+begin_src html
+<body>
+  <div class="page_all">
+    <div class="head_1">
+      <div class="head_2">
+        <div class="head_4">
+          <div class="page_1">
+            <div class="page_left">
+              <div class="page_right">
+                <div class="pright_t3">
+                  <div class="pright_t4">
+#+end_src
+
+#+begin_src clojure :results output :wrap src clojure
+(def website-old-url "http://www.sxti.zj.cn")
+(def website-old-html (get-html "http://www.sxti.zj.cn/"))
+
+(defn get-html
+  "Get HTML string as result."
+  [url]
+  (-> (http/get url {:as "GB2312"})
+      :body
+      html/html-snippet))
+
+(defonce nav-bar
+  (html/select
+   (drop 1
+         (first (map #(html/select % [:li])
+                     ;; nav bar
+                     (html/select
+                      website-old-html
+                      [:html :body :div.page_all :div.head_2 :div.head_3 :ul#head_nav]))))
+   [:a]))
+
+(defonce nav-bar-links-map
+  (map #(let [link  (str website-old-url
+                         ;; :attrs nil (:href does not exist)
+                         (if (nil? (:attrs %))
+                           nil
+                           ;; :href "javascript:void(0)"
+                           (if (= (first (html/attr-values % :href)) "javascript:void(0)")
+                             nil
+                             ;; :href "/..."                            
+                             (first (html/attr-values % :href)))))
+              title (html/text %)]
+          {title link})
+       nav-bar))
+
+(pprint nav-bar-links-map)
+#+end_src
+
+#+RESULTS[<2018-11-22 08:44:16> 09ba2fff91b47f47469fadd96ed2bbc87d5017ce]:
+#+begin_src clojure
+({"学校概况" "http://www.sxti.zj.cn"}
+ {"学校简介" "http://www.sxti.zj.cn/html/school/about.html"}
+ {"现任领导" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=13"}
+ {"名优教师" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=283"}
+ {"处室联系" "http://www.sxti.zj.cn/html/school/office.html"}
+ {"校园风景" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=14"}
+ {"楼层分布" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=35"}
+ {"交通地图" "http://www.sxti.zj.cn/html/school/map.html"}
+ {"学校荣誉" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=15"}
+ {"媒体关注" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=377"}
+ {"学校简介" "http://www.sxti.zj.cn/html/school/about.html"}
+ {"现任领导" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=13"}
+ {"名优教师" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=283"}
+ {"处室联系" "http://www.sxti.zj.cn/html/school/office.html"}
+ {"校园风景" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=14"}
+ {"楼层分布" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=35"}
+ {"交通地图" "http://www.sxti.zj.cn/html/school/map.html"}
+ {"学校荣誉" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=15"}
+ {"媒体关注" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=377"}
+ {"新闻频道" "http://www.sxti.zj.cn"}
+ {"校园新闻" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=33"}
+ {"系部新闻" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=34"}
+ {"对外交流" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=7"}
+ {"学校荣誉" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=8"}
+ {"师生荣誉" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=9"}
+ {"校园视频" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=10"}
+ {"二周安排" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=11"}
+ {"每周寄语" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=12"}
+ {"校园新闻" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=33"}
+ {"系部新闻" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=34"}
+ {"对外交流" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=7"}
+ {"学校荣誉" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=8"}
+ {"师生荣誉" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=9"}
+ {"校园视频" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=10"}
+ {"二周安排" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=11"}
+ {"每周寄语" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=12"}
+ {"下载频道" "http://www.sxti.zj.cn"}
+ {"党政办" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=16"}
+ {"教务处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=17"}
+ {"德育团委" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=18"}
+ {"总务处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=53"}
+ {"实习处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=54"}
+ {"安保处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=56"}
+ {"教科室" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=175"}
+ {"教学软件" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=57"}
+ {"其它" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=58"}
+ {"党政办" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=16"}
+ {"教务处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=17"}
+ {"德育团委" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=18"}
+ {"总务处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=53"}
+ {"实习处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=54"}
+ {"安保处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=56"}
+ {"教科室" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=175"}
+ {"教学软件" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=57"}
+ {"其它" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=58"}
+ {"处室网站" "http://www.sxti.zj.cn"}
+ {"党政办" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=37"}
+ {"教务处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=38"}
+ {"德育团委" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=39"}
+ {"总务处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=40"}
+ {"实习处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=41"}
+ {"安保处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=43"}
+ {"教科室" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=104"}
+ {"服务公司" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=44"}
+ {"党政办" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=37"}
+ {"教务处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=38"}
+ {"德育团委" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=39"}
+ {"总务处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=40"}
+ {"实习处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=41"}
+ {"安保处" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=43"}
+ {"教科室" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=104"}
+ {"服务公司" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=44"}
+ {"系部网站" "http://www.sxti.zj.cn"}
+ {"艺术设计系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=46"}
+ {"机械电子系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=47"}
+ {"财会信息系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=49"}
+ {"商贸旅游系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=50"}
+ {"建筑工程系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=51"}
+ {"新疆学部" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=52"}
+ {"艺术设计系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=46"}
+ {"机械电子系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=47"}
+ {"财会信息系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=49"}
+ {"商贸旅游系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=50"}
+ {"建筑工程系" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=51"}
+ {"新疆学部" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=52"}
+ {"招生宣传" "http://www.sxti.zj.cn"}
+ {"招生报名" "http://www.sxti.zj.cn/html/recruit/zsbm.html"}
+ {"招生简章" "http://www.sxti.zj.cn/html/recruit/plan.html"}
+ {"专业介绍" "http://www.sxti.zj.cn/html/recruit/pro.html"}
+ {"热点问答" "http://www.sxti.zj.cn/html/recruit/faq.html"}
+ {"校园生活" "http://www.sxti.zj.cn/html/recruit/xysh.html"}
+ {"招生报名" "http://www.sxti.zj.cn/html/recruit/zsbm.html"}
+ {"招生简章" "http://www.sxti.zj.cn/html/recruit/plan.html"}
+ {"专业介绍" "http://www.sxti.zj.cn/html/recruit/pro.html"}
+ {"热点问答" "http://www.sxti.zj.cn/html/recruit/faq.html"}
+ {"校园生活" "http://www.sxti.zj.cn/html/recruit/xysh.html"}
+ {"校务公开" "http://www.sxti.zj.cn"}
+ {"组织架构" "http://www.sxti.zj.cn/html/public/org.html"}
+ {"办学规划" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=19"}
+ {"管理制度" "http://www.sxti.zj.cn/e/action/ListInfo/?classid=20"}
+ ...)
+#+end_src
+
+**** DONE parse sub-nav page to get all listed result articles
+     CLOSED: [2018-11-20 Tue 19:56]
+       :LOGBOOK:
+       - State "DONE"       from "TODO"       [2018-11-20 Tue 19:56]
+       CLOCK: [2018-11-20 Tue 17:04]--[2018-11-20 Tue 19:56] =>  2:52
+       - State "TODO"       from              [2018-11-20 Tue 13:45]
+       :END:
+
+#+begin_src html
+<a href="/e/action/ListInfo/index.php?page=109&amp;classid=33&amp;totalnum=1648">尾页</a>
+#+end_src
+
+#+begin_example
+http://www.sxti.zj.cn/e/action/ListInfo/index.php?page=15&classid=33&totalnum=1648
+#+end_example
+
+#+begin_src clojure
+(defn- get-mainContent-html
+  "Get the <div class=\"page_right\" element."
+  [html]
+  (html/select html [:html :body :div.page_all :div.page_1 :div.page_right]))
+
+(map #(let [link  (str website-old-url (first (html/attr-values % :href)))
+            title (html/text %)]
+        {title link})
+     (html/select
+      (get-mainContent-html
+       (get-html "http://www.sxti.zj.cn/e/action/ListInfo/?classid=33" {:as "GB2312"}))
+      [:ul.newsList1 :li :a]))
+
+
+(defn- get-mainContent-html
+  "Get the <div class=\"page_right\" element."
+  [html]
+  (html/select html [:html :body :div.page_all :div.page_1 :div.page_right]))
+
+(defn get-page-article-links
+  "Get articles list's every article link and title."
+  [nav-link]
+  (map #(let [link  (str website-old-url (first (html/attr-values % :href)))
+              title (html/text %)]
+          {title link})
+       (html/select
+        (get-mainContent-html
+         (get-html nav-link {:as "GB2312"}))
+        [:ul.newsList1 :li :a])))
+#+end_src
+
+**** DONE iterate all result pages
+     CLOSED: [2018-11-20 Tue 20:13]
+       :LOGBOOK:
+       - State "DONE"       from "TODO"       [2018-11-20 Tue 20:13]
+       CLOCK: [2018-11-20 Tue 19:56]--[2018-11-20 Tue 20:13] =>  0:17
+       - State "TODO"       from              [2018-11-20 Tue 16:50]
+       :END:
+
+#+begin_src clojure
+(defn get-total-result-pages
+  "How much result pages?"
+  [nav-link]
+  (Integer.
+   ((keyword (str "/e/action/ListInfo/index.php?" "page"))
+    (clojure.walk/keywordize-keys
+     (ring.util.codec/form-decode
+      (first
+       (html/attr-values
+        (last
+         (html/select
+          (get-mainContent-html (get-html nav-link {:as "GB2312"}))
+          [:div.yema1 :a]))
+        :href)))))))
+
+(comment
+  (get-total-result-pages "http://www.sxti.zj.cn/e/action/ListInfo/?classid=33"))
+
+(defn get-all-article-links
+  "Get a nav's all articles link and title with map as return."
+  [nav-link]
+  (for [n (range 1 (inc (get-total-result-pages nav-link)))]
+    (let [url (str nav-link "&page=" n)]
+      (get-page-article-links url))))
+
+;; "http://www.sxti.zj.cn/e/action/ListInfo/index.php?classid=33&page=1&totalnum=1648"
+
+(get-all-article-links "http://www.sxti.zj.cn/e/action/ListInfo/?classid=33")
+#+end_src
+
+*** DONE new
+    CLOSED: [2018-11-20 Tue 16:50]
+     :LOGBOOK:
+     - State "DONE"       from              [2018-11-20 Tue 16:50]
+     :END:
+
+- http://zjzx.sxsedu.net/
+
+**** DONE get navigator bar links
+     CLOSED: [2018-11-20 Tue 13:40]
+       :LOGBOOK:
+       CLOCK: [2018-11-20 Tue 13:53]--[2018-11-20 Tue 14:30] =>  0:37
+       - State "DONE"       from              [2018-11-20 Tue 13:40]
+       CLOCK: [2018-11-20 Tue 13:36]--[2018-11-20 Tue 13:39] =>  0:03
+       CLOCK: [2018-11-20 Tue 12:07]--[2018-11-20 Tue 12:30] =>  0:23
+       :END:
+
+- http://zjzx.sxsedu.net/xygk/xyjj
+
+#+begin_src html
+<body>
+  <header id="header">
+    <div class="nav">
+      <div id="content">
+        <aside class="side">
+          <div class="mainContent">
+            <div class="mHd">
+              <h3>学院简介</h3>
+              <div class="mBd">
+                <div class="articleCon">
+                  <div class="printArea">
+                    <h3 class="title">学院简介</h3>
+                    <div class="conTxt">
+                      <div>
+                        <footer id="footer">
+#+end_src
+
+#+begin_src clojure :results output :wrap src clojure
+(require '[clj-http.client :as http]
+         '[net.cgrand.enlive-html :as html])
+(import 'java.net.URL)
+
+(defn get-html
+  "Get HTML string as result."
+  [url]
+  ;; faster, use tagsoup internal. But I don't know how to specify encoding.
+  (html/html-resource (URL. url)))
+
+(def website-new-url "http://www.sxszjzx.com")
+(def website-new-html (get-html website-new-url))
+
+;;; Nav sections
+(def nav-bar
+  (drop 1 (html/select
+           website-new-html
+           [:html :body :div.wrap :div.nav
+            :div.siteWidth :ul#mainNav.mainNav
+            :li])))
+
+(def nav-links
+  (map #(let [nav   (-> (html/select % [:a])
+                        first)
+              link  (str website-new-url (first (html/attr-values nav :href)))
+              title (html/text nav)]
+          {title link})
+       nav-bar))
+
+(pprint nav-links)
+#+end_src
+
+#+RESULTS[<2018-11-20 13:53:52> e06b6253e8e4c43833ea08045a9c07f9a67999b6]:
+#+begin_src clojure
+({"学院概况" "http://www.sxszjzx.com/xygk/xyjj"}
+ {"学院简介" "http://www.sxszjzx.com/xygk/xyjj"}
+ {"现任领导" "http://www.sxszjzx.com/xygk/xrld"}
+ {"组织架构" "http://www.sxszjzx.com/xygk/zzjg"}
+ {"处室联系" "http://www.sxszjzx.com/xygk/cslx"}
+ {"校园风光" "http://www.sxszjzx.com/xygk/xyfg"}
+ {"学院荣誉" "http://www.sxszjzx.com/xygk/xyry"}
+ {"历史沿革" "http://www.sxszjzx.com/xygk/lsyg"}
+ {"楼层分布" "http://www.sxszjzx.com/xygk/lcfb"}
+ {"交通地图" "http://www.sxszjzx.com/xygk/jtdt"}
+ {"学院动态" "http://www.sxszjzx.com/xydt"}
+ {"学院新闻" "http://www.sxszjzx.com/xydt/xyxw"}
+ {"系部新闻" "http://www.sxszjzx.com/xydt/xbxw"}
+ {"媒体聚焦" "http://www.sxszjzx.com/xydt/mtjj"}
+ {"学院荣誉" "http://www.sxszjzx.com/xydt/xyry1"}
+ {"教师荣誉" "http://www.sxszjzx.com/xydt/jsry"}
+ {"学生荣誉" "http://www.sxszjzx.com/xydt/xsry"}
+ {"系部建设" "http://www.sxszjzx.com/xbjs"}
+ {"艺术设计系" "http://www.sxszjzx.com/xbjs/yssjx"}
+ {"机械电子系" "http://www.sxszjzx.com/xbjs/jxdzx"}
+ {"财会信息系" "http://www.sxszjzx.com/xbjs/chxxx"}
+ {"商贸旅游系" "http://www.sxszjzx.com/xbjs/smlyx"}
+ {"建筑工程系" "http://www.sxszjzx.com/xbjs/jzgcx"}
+ {"新疆学部" "http://www.sxszjzx.com/xbjs/xjxb"}
+ {"招生就业" "http://www.sxszjzx.com/zsjy/zsbm"}
+ {"招生报名" "http://www.sxszjzx.com/zsjy/zsbm"}
+ {"招生简章" "http://www.sxszjzx.com/zsjy/zsjz"}
+ {"专业介绍" "http://www.sxszjzx.com/zsjy/zyjs6"}
+ {"热点问答" "http://www.sxszjzx.com/zsjy/rdwd"}
+ {"校园生活" "http://www.sxszjzx.com/zsjy/xysh"}
+ {"在线报名" "http://www.sxszjzx.com/zsjy/zxbm"}
+ {"就业信息" "http://www.sxszjzx.com/zsjy/jyxx"}
+ {"专题栏目" "http://www.sxszjzx.com/ztlm"}
+ {"示范校建设" "http://www.sxszjzx.com/ztlm/sfxjs"}
+ {"三名工程" "http://www.sxszjzx.com/ztlm/smgc"}
+ {"一核二翼专题" "http://www.sxszjzx.com/ztlm/yheyzt"}
+ {"群众路线活动" "http://www.sxszjzx.com/ztlm/qzlxhd"}
+ {"旅游职教集团" "http://www.sxszjzx.com/ztlm/lyzjjt"}
+ {"德育品牌" "http://www.sxszjzx.com/ztlm/dypp"}
+ {"校园视频" "http://www.sxszjzx.com/ztlm/xysp"}
+ {"精品课程" "http://www.sxszjzx.comhttp://server2.sxszjzx.com/~jwc/"}
+ {"校务公开" "http://www.sxszjzx.com/xxgk"}
+ {"办学规划" "http://www.sxszjzx.com/xxgk/bxgh"}
+ {"公示公告" "http://www.sxszjzx.com/xxgk/glzd"}
+ {"阳光收费" "http://www.sxszjzx.com/xxgk/ygsf"}
+ {"评职评优" "http://www.sxszjzx.com/xxgk/pzpy"}
+ {"招标公告" "http://www.sxszjzx.com/xxgk/zbgg"}
+ {"质量报告" "http://www.sxszjzx.com/xxgk/zlbg"}
+ {"资源下载" "http://www.sxszjzx.com/xxgk/zyxz"}
+ {"党建工作" "http://www.sxszjzx.com/djgz"}
+ {"党建动态" "http://www.sxszjzx.com/djgz/djdt"}
+ {"廉政专栏" "http://www.sxszjzx.com/djgz/lzzl"}
+ {"亮旗行动" "http://www.sxszjzx.com/djgz/lqhd"}
+ {"学习资料" "http://www.sxszjzx.com/djgz/xxzl"})
+#+end_src
+
+**** DONE parse sub-nav page to get all listed result articles
+     CLOSED: [2018-11-20 Tue 15:44]
+       :LOGBOOK:
+       - State "DONE"       from "TODO"       [2018-11-20 Tue 15:44]
+       CLOCK: [2018-11-20 Tue 15:35]--[2018-11-20 Tue 15:44] =>  0:09
+       - State "TODO"       from              [2018-11-20 Tue 13:45]
+       :END:
+
+#+begin_src html
+<div class="mainContent">
+
+  <!-- nav name -->
+  <div class="mHd">
+    <div class="path">
+
+      <em>您的位置：</em><a href="/">首页</a>
+      &gt;<a href="/xydt">学院动态</a>&gt;<a href="/xydt/xyxw" target="_blank">学院新闻</a></div>
+    <h3>学院新闻</h3>
+  </div>
+
+  <div class="mBd">
+    <!-- 正文内容 S -->
+    <ul class="pageTPList">
+      
+      <!-- article -->
+      <li class="first">
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39935" title="六十载同心同德建名校  一甲子匠智匠力创品牌">六十载同心同德建名校  一甲子匠智匠力创品牌</a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39935">
+            <img alt="六十载同心同德建名校  一甲子匠智匠力创品牌" src="/upload/sxszjzx/contentmanage/article/image/2018/11/09/20a47dec289f436bb3e2a9f6d19df63d_180_110.png">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            &nbsp;薪火相承，一甲子春华秋实。2018年，绍兴技师学院（筹）、绍兴市职业教育中心迎来了建校六十周年华诞。学校始建于1958年，前身为鉴湖公社初级中学，1985年更名为绍兴市第一职业技术中学，1995年市一职中与市中兴职中和市二职中合并为绍兴市职教中心，1997年市树人...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-11-09</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li>
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39927" title="你的样子，我刚好喜欢  —— 我校开展“仪容仪表示范班”评比活动">你的样子，我刚好喜欢  —— 我校开展“仪容仪表示范班”评比活动</a>
+        </div>
+
+
+        <div class="con">
+
+          <div class="intro">
+            &nbsp;&nbsp;为进一步加强学生的文明礼仪教育，强化学校的常规管理，使学生养成良好的行为习惯，促进优良的校风、班风的形成，近期德育处开展了“仪容仪表示范班”的评选活动。&nbsp; 根据学校的实际情况，学校制定了仪容仪表示范班的评选条件。要求男生不烫发染发，前面头发不盖...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-11-08</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li>
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39923" title="当快闪遇上诗歌——我们一起告白我的国">当快闪遇上诗歌——我们一起告白我的国</a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39923">
+            <img alt="当快闪遇上诗歌——我们一起告白我的国" src="/upload/sxszjzx/contentmanage/article/image/2018/11/08/399e2baba1b4452284db6cc371ca9354_180_110.jpeg">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            &nbsp;&nbsp; &nbsp;近日，德育处、团委举办了一场“颂中华诗词，寻文化基因”的诗歌快闪活动。新颖的活动形式吸引了不少师生的关注，得到了许多同学的喝彩。“从浩瀚的地球仪上，我认识了我的祖国……”突然，熙熙攘攘的人群中传来了诗歌朗诵声，这边朗诵声初歇，那边人群中又突...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-11-08</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li>
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39893" title="“红色匠心，青春向党”—我校十月“祖国颂”诗歌朗诵比赛圆满结束">“红色匠心，青春向党”—我校十月“祖国颂”诗歌朗诵比赛圆满结束</a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39893">
+            <img alt="“红色匠心，青春向党”—我校十月“祖国颂”诗歌朗诵比赛圆满结束" src="/upload/sxszjzx/contentmanage/article/image/2018/11/07/1b861b632085418db67d923477733589_180_110.jpeg">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            &nbsp; &nbsp; 为庆祝祖国69岁华诞，培养学生爱党爱国爱校情怀，配合省全民终身学习宣传周活动，提升学生诗歌朗诵水平及语文素养，营造朝气蓬勃、积极向上的校园文化氛围，11月1日下午，绍兴技师学院（筹）、绍兴市职教中心在报告厅隆重举行十月“祖国颂”诗歌朗诵比赛决赛。...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-11-07</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li>
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39799" title="第三届校教职工气排球圆满结束 ">第三届校教职工气排球圆满结束 </a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39799">
+            <img alt="第三届校教职工气排球圆满结束 " src="/upload/sxszjzx/contentmanage/article/image/2018/11/02/bf87db2b58cd4449b966cc62f07cf18b_180_110.jpg">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            &nbsp; &nbsp; 第三届校教职工气排球比赛，经过二轮26场激烈比拚于周二中午在校体育馆落下帷幕。最终比赛成绩如下：第一名：新疆学部，第二名：办公行政教科组，第三名：德育实习安监组，第四名：艺术设计组。本届气排球比赛，由校教职工10个工会小组分别组队参加，比赛共分...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-11-02</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li>
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39808" title="关注课堂，携手育人——我校开展家长开放日观摩课活动报道">关注课堂，携手育人——我校开展家长开放日观摩课活动报道</a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39808">
+            <img alt="关注课堂，携手育人——我校开展家长开放日观摩课活动报道" src="/upload/sxszjzx/contentmanage/article/image/2018/11/04/6a62a56c68114ef08e0710b15ea86ad9_180_110.jpg">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            为更好的架设学校、家庭、社会沟通的桥梁，让家长们走进课堂，走近孩子，走进学校， 10月24日上午我校举行了“家长开放日”活动。“请家长听一堂课”作为这次活动的重头戏，学校和各系部都高度重视。除了语文、数学等文化课以外，各系部还展示了包括声乐、建筑设计、...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-10-30</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li>
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39589" title="“更高、更快、更强”——绍兴技师学院（筹）绍兴市职教中心成功举办第七十一届田径运动会">“更高、更快、更强”——绍兴技师学院（筹）绍兴市职教中心成功举办第七十一届田径运动会</a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39589">
+            <img alt="“更高、更快、更强”——绍兴技师学院（筹）绍兴市职教中心成功举办第七十一届田径运动会" src="/upload/sxszjzx/contentmanage/article/image/2018/10/28/4ea0ecdfccb34282a4963337e0822289_180_110.jpg">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            &nbsp;10月17日至19日，我校隆重举办了第七十一届田径运动会。本届运动会共六个组别、十二个赛项，有89个班级、共1350名运动员参赛，参赛班级、参赛人数均创历史新高。17日下午，学校体育场上彩旗飘扬、音乐嘹亮，全校师生云集喜迎第七十一届田径运动会开幕。学校纪委书...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-10-28</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li>
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39560" title="弘扬垦荒精神 铸牢党性之魂——我校党员教师赴大陈岛开展专题党日活动">弘扬垦荒精神 铸牢党性之魂——我校党员教师赴大陈岛开展专题党日活动</a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39560">
+            <img alt="弘扬垦荒精神 铸牢党性之魂——我校党员教师赴大陈岛开展专题党日活动" src="/upload/sxszjzx/contentmanage/article/image/2018/10/26/f65137cdcab24d0b971d275a9844db99_180_110.jpg">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            为纪念中华人民共和国成立69周年，全面推进党的组织建设，激励全体党员教师继承和发扬党的优良传统和作风，绍兴市职教中心党委组织党员教师沿着习近平总书记的足迹奔赴浙江省直机关党员干部教育基地台州大陈岛开展现场学习教育，重温入党誓词，追溯红色记忆，学习“...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-10-26</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li>
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39499" title="加强师资建设，争创名师团队——我校召开《人性的追问与教师的职业成长》专题讲座">加强师资建设，争创名师团队——我校召开《人性的追问与教师的职业成长》专题讲座</a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39499">
+            <img alt="加强师资建设，争创名师团队——我校召开《人性的追问与教师的职业成长》专题讲座" src="/upload/sxszjzx/contentmanage/article/image/2018/10/24/cfc07cf7747944dda7e2e39497d04f28_180_110.jpeg">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            加强师资建设，争创名师团队——我校召开《人性的追问与教师的职业成长》专题讲座10月12日下午，学校邀请平湖职业中专校长贺陆军到我校报告厅召开《人性的追问与教师的职业成长》专题讲座。讲座由校长钱金星主持。全体教工认真聆听了讲座。贺校长从人的物质性与文化...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-10-24</span>
+          </div>
+
+        </div>
+
+      </li>
+
+
+
+      <li class="last">
+
+        <div class="title">
+          <a target="_blank" class="tit" href="/xydt/xyxw/content_39157" title="五星三名·用行动践行先锋力量——我校开展系列“党员育人”活动">五星三名·用行动践行先锋力量——我校开展系列“党员育人”活动</a>
+        </div>
+
+        <div class="pic">
+          <a target="_blank" href="/xydt/xyxw/content_39157">
+            <img alt="五星三名·用行动践行先锋力量——我校开展系列“党员育人”活动" src="/upload/sxszjzx/contentmanage/article/image/2018/10/10/0e90c18e22384da29534b5923e9d207d_180_110.jpeg">
+          </a>
+        </div>
+
+        <div class="con">
+
+          <div class="intro">
+            为充分发挥党员教师的先锋模范作用，进一步拓宽党员育人的广度与深度，传播先锋力量，本学期伊始，我校党委组织六大支部开展了“秉烛怀志，躬身明责”的系列党员育人岗活动——“党员育人示范岗”，用红正的党徽为学生的放学之路保驾护航；“党建带团建”，用党员力...
+          </div>
+
+          <div class="others">
+            <span class="date">2018-09-29</span>
+          </div>
+
+        </div>
+
+      </li>
+
+    </ul>
+    <div class="page">
+
+
+      <a class="first disabled" href="javascript:void(0);">首页</a>
+      <a class="prev disabled" href="javascript:void(0);">上一页</a>
+      <a class="current">1</a> <a href="/xydt/xyxw_2">2</a> <a href="/xydt/xyxw_3">3</a> <a href="/xydt/xyxw_4">4</a> <a href="/xydt/xyxw_5">5</a> <a href="/xydt/xyxw_6">6</a> <a href="/xydt/xyxw_7">7</a> <a href="/xydt/xyxw_8">8</a> <a href="/xydt/xyxw_9">9</a>         <a class="next" href="/xydt/xyxw_2">下一页</a>
+      <a class="last" href="/xydt/xyxw_166">尾页</a>
+      <span class="total">共1652条信息/共166页</span>
+      <span class="select">转到第<input title="按回车键跳转到指定页" onkeypress="javascript:return quickJumpPage(event, 'quickJumpButton')" type="text" style="width:24px" id="quickJumpInput" class="quickJumpInput " value="1"><script type="text/javascript">var pageNameUrl = '/xydt/xyxw_{pageid}';function quickJumpPage(event){if (event.keyCode == 13 && !(event.srcElement && (event.srcElement.tagName.toLowerCase() == 'textarea'))) {var number = document.getElementById('quickJumpInput').value;if (/\d+/i.test(number)){if (number > 166) number = 166;if(number < 1) number = 1;window.location.href = pageNameUrl.replace("{pageid}", number);}else{alert('输入的页数有误！');}}}</script>页</span>
+    </div>
+    <!-- 正文内容 E -->
+  </div>
+  
+</div>
+#+end_src
+
+#+begin_src clojure :results output :wrap src clojure
+'(defn get-mainContent-html
+   "Get nav link page's mainContent."
+   [nav-link]
+   (html/select nav-link [:html :body :div.wrap :div#content :div.mainContent]))
+
+(defn get-articles-list
+  "Get page right articles list."
+  [nav-link]
+  (html/select (get-mainContent-html nav-link) [:div.mBd :ul.pageTPList
+                                                :li :div.title :a.tit]))
+
+(pprint
+ (map #(let [link  (first (html/attr-values % :href))
+             title (html/text %)]
+         {title link})
+      (html/select
+       (html/select
+        (get-html "http://www.sxszjzx.com/xydt/xyxw")
+        [:html :body :div.wrap :div#content :div.mainContent])
+       [:div.mBd :ul.pageTPList :li :div.title :a.tit])))
+#+end_src
+
+#+RESULTS[<2018-11-20 15:44:37> 655322e0cb1d7c5d14d697664ca9e7b49a8c360b]:
+#+begin_src clojure
+({"六十载同心同德建名校  一甲子匠智匠力创品牌" "/xydt/xyxw/content_39935"}
+ {"你的样子，我刚好喜欢  —— 我校开展“仪容仪表示范班”评比活动" "/xydt/xyxw/content_39927"}
+ {"当快闪遇上诗歌——我们一起告白我的国" "/xydt/xyxw/content_39923"}
+ {"“红色匠心，青春向党”—我校十月“祖国颂”诗歌朗诵比赛圆满结束" "/xydt/xyxw/content_39893"}
+ {"第三届校教职工气排球圆满结束 " "/xydt/xyxw/content_39799"}
+ {"关注课堂，携手育人——我校开展家长开放日观摩课活动报道" "/xydt/xyxw/content_39808"}
+ {"“更高、更快、更强”——绍兴技师学院（筹）绍兴市职教中心成功举办第七十一届田径运动会"
+  "/xydt/xyxw/content_39589"}
+ {"弘扬垦荒精神 铸牢党性之魂——我校党员教师赴大陈岛开展专题党日活动" "/xydt/xyxw/content_39560"}
+ {"加强师资建设，争创名师团队——我校召开《人性的追问与教师的职业成长》专题讲座" "/xydt/xyxw/content_39499"}
+ {"五星三名·用行动践行先锋力量——我校开展系列“党员育人”活动" "/xydt/xyxw/content_39157"})
+#+end_src
+
+**** DONE iterate all result pages
+     CLOSED: [2018-11-20 Tue 16:49]
+       :LOGBOOK:
+       - State "DONE"       from "TODO"       [2018-11-20 Tue 16:49]
+       CLOCK: [2018-11-20 Tue 15:47]--[2018-11-20 Tue 16:38] =>  0:51
+       - State "TODO"       from              [2018-11-20 Tue 15:35]
+       :END:
+
+#+begin_src html
+<span class="total">共1652条信息/共166页</span>
+#+end_src
+
+#+begin_src clojure :results output
+(defn get-total-result-pages
+  "How much result pages?"
+  [nav-link]
+  (Integer.
+   (second
+    (re-find #"/共(.*)页"
+             (html/text
+              (first (html/select (get-mainContent-html (get-html nav-link))
+                                  [:div.mBd :div.page :span.total])))))))
+
+(pprint (get-total-result-pages "http://www.sxszjzx.com/xydt/xyxw"))
+#+end_src
+
+#+RESULTS[<2018-11-20 15:46:01> 5ef17198ba9db794a3044f7024a68a407f55c7a7]:
+: 166
+
+#+begin_example
+http://www.sxszjzx.com/xydt/xyxw
+OR:
+http://www.sxszjzx.com/xydt/xyxw_1
+
+http://www.sxszjzx.com/xydt/xyxw_2
+....
+http://www.sxszjzx.com/xydt/xyxw_166
+#+end_example
+
+#+begin_src clojure
+(defn get-page-article-links
+  "Get articles list's every article link and title."
+  [nav-link]
+  (map #(let [link  (first (html/attr-values % :href))
+              title (html/text %)]
+          {title link})
+       (html/select (get-mainContent-html (get-html nav-link))
+                    [:div.mBd :ul.pageTPList :li :div.title :a.tit])))
+
+(defn get-all-article-links
+  "Get a nav's all articles link and title with map as return."
+  [nav-link]
+  (for [n (range 1 (inc (get-total-result-pages nav-link)))]
+    (let [url (str nav-link (format "_%d" n))]
+      (get-page-article-links url))))
+
+(def nav-articles-links (get-all-article-links "http://www.sxszjzx.com/xydt/xyxw"))
+#+end_src
+
+#+begin_src clojure :results output :wrap src clojure
+(pprint (take 3 nav-articles-links))
+#+end_src
+
+#+RESULTS[<2018-11-20 16:49:24> 95510e6d6adc5f339d2ae652916699a8c087346a]:
+#+begin_src clojure
+(({"六十载同心同德建名校  一甲子匠智匠力创品牌" "/xydt/xyxw/content_39935"}
+  {"你的样子，我刚好喜欢  —— 我校开展“仪容仪表示范班”评比活动" "/xydt/xyxw/content_39927"}
+  {"当快闪遇上诗歌——我们一起告白我的国" "/xydt/xyxw/content_39923"}
+  {"“红色匠心，青春向党”—我校十月“祖国颂”诗歌朗诵比赛圆满结束" "/xydt/xyxw/content_39893"}
+  {"第三届校教职工气排球圆满结束 " "/xydt/xyxw/content_39799"}
+  {"关注课堂，携手育人——我校开展家长开放日观摩课活动报道" "/xydt/xyxw/content_39808"}
+  {"“更高、更快、更强”——绍兴技师学院（筹）绍兴市职教中心成功举办第七十一届田径运动会"
+   "/xydt/xyxw/content_39589"}
+  {"弘扬垦荒精神 铸牢党性之魂——我校党员教师赴大陈岛开展专题党日活动" "/xydt/xyxw/content_39560"}
+  {"加强师资建设，争创名师团队——我校召开《人性的追问与教师的职业成长》专题讲座" "/xydt/xyxw/content_39499"}
+  {"五星三名·用行动践行先锋力量——我校开展系列“党员育人”活动" "/xydt/xyxw/content_39157"})
+ ({"柯桥区职教中心四位中层干部来我校交流学习" "/xydt/xyxw/content_39159"}
+  {"江苏泰州机电高等职业技术学校一行来校学习调研" "/xydt/xyxw/content_39552"}
+  {"倾听教师心声，助力学校发展——我校召开2018学年第一学期教师座谈会" "/xydt/xyxw/content_39158"}
+  {"校工会举行新学期首次工作会议" "/xydt/xyxw/content_38999"}
+  {"“急救侠”集结，学校安全再添“保护伞”—我校教师积极参加“AED”培训" "/xydt/xyxw/content_29630"}
+  {"“年轻的战士，我为你鼓掌”——2018级新生军训会操纪实" "/xydt/xyxw/content_29629"}
+  {"以奖促学——让榜样的力量发光发热" "/xydt/xyxw/content_29628"}
+  {"未来工匠，领跑新征程——我校举行2018年第一学期开学典礼暨表彰大会(图文)" "/xydt/xyxw/content_29627"}
+  {"我校学子成功晋级第三届浙江省科学玩家青少年才能挑战赛复赛" "/xydt/xyxw/content_29626"}
+  {"告别“压力山大”  美好从“心”开始—我校第一堂“心理慕课”顺利开课" "/xydt/xyxw/content_29625"})
+ ({"树目标 重创新 团结协作创实效----市教育局副局长石鑫炯一行赴我校督查开学工作(图文)"
+   "/xydt/xyxw/content_29624"}
+  {"温情期许匠心传承-我校为2018级新生送上最走心入学礼" "/xydt/xyxw/content_29623"}
+  {"一个支部一个堡垒，2018绍兴新疆班返校在路上(图文)" "/xydt/xyxw/content_29622"}
+  {"记我校2018年文明单位、文明校园复评工作(图文)" "/xydt/xyxw/content_29621"}
+  {"德育处、团委召开新学期第一次班主任会议" "/xydt/xyxw/content_34686"}
+  {"忠于职守，继往开来——2018学年干部集体廉政谈话(图文)" "/xydt/xyxw/content_34685"}
+  {"2018学年编外工作人员招聘公告" "/xydt/xyxw/content_34684"}
+  {"实践创新路上的中职名校建设——记我校2018学年第一期读书会(图文)" "/xydt/xyxw/content_34683"}
+  {"青春服务越青商，助力拥抱大湾区" "/xydt/xyxw/content_34682"}
+  {"2018年特招教师拟录用人员名单公示" "/xydt/xyxw/content_29640"}))
+#+end_src
+
+*** DONE benchmark new website two entry URL
+    CLOSED: [2018-11-20 Tue 13:17]
+      :LOGBOOK:
+      - State "DONE"       from              [2018-11-20 Tue 13:17]
+      CLOCK: [2018-11-20 Tue 12:33]--[2018-11-20 Tue 13:17] =>  0:44
+      :END:
+
+#+begin_src clojure :results output
+(require '[clj-http.client :as http])
+(require '[net.cgrand.enlive-html :as html])
+(use 'criterium.core)
+
+(pr (quick-bench (http/get "http://www.sxszjzx.com")))
+#+end_src
+
+#+begin_src clojure :results output
+(pr (quick-bench (http/get "http://zjzx.sxsedu.net")))
+#+end_src
+
+** TODO 从旧网站遍历所有文章，然后以标题在新网站中搜索，对比搜索结果中的第一个 [0/1]
+     :LOGBOOK:
+     - State "TODO"       from              [2018-09-25 Tue 10:47]
+     :END:
+
+- [ ] 有一个统一而且简单的办法是在旧网站上遍历所有文章，然后每条文章在新网站中搜索。获得新
+  网站的搜索结果。然后比对新旧网站文章页面的内容。
+
+#+begin_example
+jyj.sxsedu.net/s?sid=22&wd="QUERY"
+#+end_example
+
+#+begin_src clojure
+;;; Search entry
+;; http://jyj.sxsedu.net/s?sid=22&wd="QUERY"
+(defn website-new-search
+  "Search TITLE in new website http://jyj.sxsedu.net/."
+  [title]
+  )
+
+;; div.s-result > div.result-list > ul > li > h4 > a[href="url"]
+(defn website-root-search-result-select
+  "Select the first result from `website-new-search` results."
+  [results]
+  (-> results
+      (html/select [:.s-result :.result-list :ul :li :h4 :a])
+      (html/attr-values :href))
+  )
+
+;;; TODO: encode Chinese into URL
+#+end_src
+
+*** TODO 如何遍历所有文章 [0/1]
+      :LOGBOOK:
+      - State "TODO"       from              [2018-09-27 Thu 14:33]
+      :END:
+
+- [ ] search
+
+**** DONE 遍历爬取旧网站的所有文章
+     CLOSED: [2018-09-27 Thu 14:33]
+      :LOGBOOK:
+      - State "DONE"       from "INPROGRESS" [2018-09-27 Thu 14:33]
+      - State "INPROGRESS" from "TODO"       [2018-09-27 Thu 10:07]
+      - State "TODO"       from              [2018-09-27 Thu 10:07]
+      :END:
+
+Old website
+类目: http://www.sxszjzx.com/e/action/ListInfo/?classid=390
+文章页面: http://www.sxszjzx.com/e/action/ShowInfo.php?classid=390&id=12767
+
+文章页面的内容tag
+
+#+begin_example
+:div.page_right > :.pright_t1 > :.pright_t4
+     article        title          content
+#+end_example
+
+Single entry test:
+
+#+begin_src clojure
+(:status (http/get "http://www.sxszjzx.com/e/action/ShowInfo.php?classid=6&id=6"
+                   {:as "GB2312"}));; => 200
+
+(if (= "信息提示" (first
+                   (:content
+                    (first
+                     (html/select
+                      (html/html-snippet
+                       (:body (http/get "http://www.sxszjzx.com/e/action/ShowInfo.php?classid=6&id=6"
+                                        {:as "GB2312"})))
+                      [:title])))))
+  false
+  true)
+#+end_src
+
+A huge double deep iteration:
+
+#+begin_src clojure :results output
+(require 'clojure.java.io)
+
+(for [classid (range 0 1000)]
+  (for [id (range 0 1000)]
+    (let [url     (format "http://www.sxszjzx.com/e/action/ShowInfo.php?classid=%s&id=%s"
+                          classid id)
+          respond (http/get url {:as "GB2312"})]
+      (if-let [status (not (= "信息提示" (first
+                                          (:content (first
+                                                     (html/select
+                                                      (html/html-snippet (:body respond))
+                                                      [:title]))))))]
+        (let [*out* (clojure.java.io/writer "/home/stardiviner/titles.lst")]
+          (println (str "OK! " url))
+          (println (-> respond
+                       html/html-snippet
+                       (html/select [:pright_t1]) ; title
+                       html/texts)))
+        (println (str "FAILED! " url))
+        ))))
+#+end_src
+
+After long time running and test, seems this does not work.
+
+*** DONE 新网站搜索入口 API
+    CLOSED: [2018-09-27 Thu 14:07] DEADLINE: <2018-09-27 Thu>
+      :LOGBOOK:
+      - State "DONE"       from "TODO"       [2018-09-27 Thu 14:07]
+      - State "TODO"       from              [2018-09-27 Thu 10:08]
+      :END:
+
+#+begin_example
+http://jyj.sxsedu.net/s?sid=22&wd="QUERY"
+#+end_example
+
+#+begin_src clojure :eval no
+(doseq [title (....)] ; TODO:
+  (-> (http/get "http://jyj.sxsedu.net/s?sid=22&wd=%s" title)
+      ))
+#+end_src
+
+*** DONE 获取第一个搜索结果 是否和 旧网站的标题 相同？
+    CLOSED: [2018-09-27 Thu 14:14] DEADLINE: <2018-09-27 Thu>
+      :LOGBOOK:
+      - State "DONE"       from "TODO"       [2018-09-27 Thu 14:14]
+      - State "TODO"       from              [2018-09-27 Thu 10:08]
+      :END:
+
+#+NAME: the first result's CSS selector to get URL
+#+begin_src css :eval no
+div.s-result > div.result-list > ul > li > h4 > a[href="url"]
+#+end_src
+
+For testing:
+- http://www.sxszjzx.com/e/action/ShowInfo.php?classid=115&id=15463 :: “致匠心”----艺术设计系开学第一课
+- http://www.sxszjzx.com/e/action/ShowInfo.php?classid=115&id=15453 :: 17学前教育2班开学第一课----君子以自强不息
+- http://www.sxszjzx.com/e/action/ShowInfo.php?classid=115&id=15421 :: 童心颂师恩
+
+#+NAME: search result API
+#+begin_src clojure :results output
+(require '[clojure.string :as str])
+
+(defn website-new-search-result-same? [title]
+  "Search TITLE in new website search API."
+  (let [first-result       (first
+                            (-> (:body
+                                 (http/get
+                                  (format "http://jyj.sxsedu.net/s?sid=22&wd=%s" title)))
+                                html/html-snippet
+                                (html/select [:.s-result :.result-list :ul :h4 :a])))
+        first-result-title (apply str (html/texts (html/select first-result [:span])))
+        first-result-link  (first (html/attr-values first-result :href))]
+    (= first-result-title (convert-old-title title))))
+
+(defn- convert-old-title [title]
+  "Remove some special characters in old website title."
+  (str/replace title #"[“”-]" ""))
+
+(prn (website-new-search-result-same? "童心颂师恩"))
+(prn (website-new-search-result-same? "“致匠心”----艺术设计系开学第一课"))
+#+end_src
+
+#+RESULTS[<2018-09-27 14:26:39> 49e9d0295375f37aee9c42872fe746b6d42d9235]: search result API
+: true
+: true
+
+** FAILED 按照URL的格式遍历所有类目和文章
+   CLOSED: [2018-09-25 Tue 10:45]
+     :LOGBOOK:
+     - State "FAILED"     from "TODO"       [2018-09-25 Tue 10:45] \\
+       Solution invalid: because the number is not start from 0 or 1.
+     - State "TODO"       from              [2018-09-25 Tue 10:45]
+     :END:
+
+Old website
+类目: http://www.sxszjzx.com/e/action/ListInfo/?classid=390
+文章页面: http://www.sxszjzx.com/e/action/ShowInfo.php?classid=390&id=12767
+
+http://www.sxszjzx.com/e/action/ListInfo/index.php?page=109&classid=33&totalnum=1645
+
+New website
+类目: http://zjzx.sxsedu.net/xydt/xyxw_2
+文章页面: http://zjzx.sxsedu.net/xydt/xyxw/content_34682
+
+* DONE crawler.clj 爬虫存储提取连接的数据库 [5/5]
+  CLOSED: [2018-11-20 Tue 21:58]
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2018-11-20 Tue 21:58]
+  - State "TODO"       from              [2018-11-18 Sun 11:36]
+  :END:
+
+** DONE Redis
+   CLOSED: [2018-11-20 Tue 21:58]
+     :LOGBOOK:
+     CLOCK: [2018-11-21 Wed 19:58]--[2018-11-21 Wed 19:59] =>  0:01
+     - State "DONE"       from "TODO"       [2018-11-20 Tue 21:58]
+     CLOCK: [2018-11-20 Tue 21:23]--[2018-11-20 Tue 21:58] =>  0:35
+     - State "TODO"       from              [2018-11-20 Tue 20:28]
+     CLOCK: [2018-11-20 Tue 20:28]--[2018-11-20 Tue 20:36] =>  0:08
+     :END:
+
+[[file:~/Org/Wiki/Computer%20Technology/Programming/Programming%20Languages/Clojure/Data/Clojure%20Packages/Clojure%20Packages.org::*Redis][Clojure Redis Packages]]
+
+[[file:~/Org/Wiki/Computer%20Technology/Programming/Programming%20Languages/Database/NoSQL/Redis/Redis.org][Redis]]
+
+*** DONE how to access the Redis?
+    CLOSED: [2018-11-21 Wed 19:59]
+      :LOGBOOK:
+      - State "DONE"       from              [2018-11-21 Wed 19:59]
+      :END:
+
+#+begin_src clojure
+(require '[taoensso.carmine :as redis])
+
+;;; Redis store crawler links
+(defonce redis-conn-pool {:pool {}
+                          :spec {:host "127.0.0.1" :port 6379}})
+
+(defmacro wcar*
+  [& body]
+  `(redis/wcar redis-conn-pool ~@body))
+
+(comment
+  (wcar*
+   (redis/ping)))
+
+(defn save-link-to-redis
+  "Save crawled link to Redis.
+  Usage: (save-link-to-redis :old title link)"
+  [website-key title link]
+  (wcar*
+   (redis/hset website-key title link)))
+
+(defn get-link-from-redis
+  "Get link to crawl from Redis.
+  Usage: (get-link-from-redis :old title"
+  [website-key title]
+  (wcar*
+   (redis/hget website-key title)))
+#+end_src
+
+*** DONE extract all links in nav bar
+    CLOSED: [2018-11-22 Thu 08:44]
+      :LOGBOOK:
+      - State "DONE"       from "TODO"       [2018-11-22 Thu 08:44]
+      CLOCK: [2018-11-22 Thu 08:31]--[2018-11-22 Thu 08:44] =>  0:13
+      - State "TODO"       from              [2018-11-22 Thu 07:35]
+      :END:
+
+#+begin_src clojure
+(defn crawl-website-old-links []
+  "Crawl all links of website old."
+  (for [nav-link (map #(-> % vals first) old/nav-bar-links-map)]
+    (for [n (range 1 (inc (count old/nav-bar-links-map)))]
+      (wcar* (redis/hset :old/links n nav-link)))))
+
+(defn crawl-website-new-links []
+  "Crawl all links of website new."
+  (for [nav-link (map #(-> % vals first) new/nav-bar-links-map)]
+    (for [n (range 1 (inc (count new/nav-bar-links-map)))]
+      (wcar* (redis/hset :new/links n nav-link)))))
+#+end_src
+
+*** DONE save all links to Redis
+    CLOSED: [2018-11-21 Wed 21:58]
+      :LOGBOOK:
+      CLOCK: [2018-11-22 Thu 07:19]--[2018-11-22 Thu 07:33] =>  0:14
+      - State "DONE"       from "TODO"       [2018-11-21 Wed 21:58]
+      CLOCK: [2018-11-21 Wed 21:37]--[2018-11-21 Wed 21:58] =>  0:21
+      CLOCK: [2018-11-21 Wed 20:32]--[2018-11-21 Wed 20:48] =>  0:16
+      CLOCK: [2018-11-21 Wed 19:59]--[2018-11-21 Wed 20:08] =>  0:09
+      - State "TODO"       from              [2018-11-21 Wed 19:59]
+      :END:
+
+#+begin_src clojure
+(defn crawl-website-old-links []
+  "Crawl all links of website old."
+  (for [nav-link (map #(-> % vals first) old/nav-bar-links-map)]
+    (for [n (range 1 (inc (count old/nav-bar-links-map)))]
+      (redis/hset :old/links n nav-link))))
+
+(defn crawl-website-new-links []
+  "Crawl all links of website new."
+  (for [nav-link (map #(-> % vals first) new/nav-bar-links-map)]
+    (for [n (range 1 (inc (count new/nav-bar-links-map)))]
+      (redis/hset :new/links n nav-link))))
+#+end_src
+
+Check out the stored links:
+
+#+begin_src redis :results output
+HVALS old/links
+#+end_src
+
+#+RESULTS[<2018-11-22 07:19:04> 7c0a2d3bf445b46fda155607b5d7a68489335ab1]:
+#+begin_example
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+http://www.sxti.zj.cn/html/recruit/plan.html
+#+end_example
+
+*** DONE literal over all redis Hash key-values
+    CLOSED: [2018-11-21 Wed 19:59]
+      :LOGBOOK:
+      - State "DONE"       from              [2018-11-21 Wed 19:59]
+      :END:
+
+#+begin_src clojure
+(defn all-links-in-redis
+  "Get all links in Redis."
+  [website-key]
+  (wcar*
+   ;; (redis/hgetall website-key)
+   (redis/hvals website-key)))
+#+end_src
+
+#+begin_src clojure
+(wcar*
+ (redis/hvals :old/links))
+#+end_src
+
+* TODO crawler.clj 爬取页面的内容 [3/6]
+  :LOGBOOK:
+  - State "TODO"       from              [2018-11-18 Sun 12:01]
+  :END:
+
+** DONE scrape the article
+   CLOSED: [2018-11-21 Wed 19:27]
+     :LOGBOOK:
+     - State "DONE"       from "TODO"       [2018-11-21 Wed 19:27]
+     - State "TODO"       from              [2018-11-19 Mon 13:55]
+     :END:
+
+#+begin_src clojure
+(defn crawl-website-old-articles []
+  "Crawl all articles of website old."
+  (for [link (all-links-in-redis :old/links)]
+    (old/get-html link)))
+
+(defn crawl-website-new-articles []
+  "Crawl all articles of website new."
+  (for [link (all-links-in-redis :new/links)]
+    (new/get-html link)))
+#+end_src
+
+*** DONE old
+    CLOSED: [2018-11-21 Wed 19:14]
+      :LOGBOOK:
+      - State "DONE"       from "TODO"       [2018-11-21 Wed 19:14]
+      CLOCK: [2018-11-21 Wed 19:12]--[2018-11-21 Wed 19:14] =>  0:02
+      - State "TODO"       from "DONE"       [2018-11-20 Tue 22:25]
+      - State "DONE"       from "TODO"       [2018-11-20 Tue 22:14]
+      - State "TODO"       from              [2018-11-20 Tue 22:13]
+      CLOCK: [2018-11-20 Tue 22:13]--[2018-11-20 Tue 22:14] =>  0:01
+      :END:
+
+#+begin_src clojure
+(defn get-page-article-content-html
+  "Get page's article content html."
+  [url]
+  (html/select (get-html url) [:div.page_right]))
+
+(defn parse-article-title-and-content
+  "Parse and extract the title and content text."
+  [url]
+  (let [content-html (get-page-article-content-html url)
+        title        (html/text (first (html/select content-html [:div.news_Title1])))
+        content      (html/text (first (html/select content-html [:div.news_Content1])))]
+    {:title title, :content content}))
+
+(comment
+  (html/text
+   (first
+    (html/select
+     (get-page-article-content "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=61&id=15533")
+     [:div.news_Content1]))))
+#+end_src
+
+*** DONE new
+    CLOSED: [2018-11-21 Wed 19:27]
+      :LOGBOOK:
+      - State "DONE"       from "TODO"       [2018-11-21 Wed 19:27]
+      CLOCK: [2018-11-21 Wed 19:18]--[2018-11-21 Wed 19:27] =>  0:09
+      CLOCK: [2018-11-20 Tue 22:14]--[2018-11-20 Tue 22:25] =>  0:11
+      - State "TODO"       from              [2018-11-20 Tue 22:13]
+      :END:
+
+#+begin_src clojure
+(defn get-page-article-content-html
+  "Get page's article content html."
+  [url]
+  (html/select (get-html url) [:div.mainContent]))
+
+(defn parse-article-title-and-content
+  "Parse and extract the title and content text."
+  [url]
+  (let [content-html (get-page-article-content-html url)
+        title        (html/text
+                      (first
+                       (html/select
+                        content-html
+                        [:div.mBd :article.articleCon :div.printArea :h2.title])))
+        content      (html/text
+                      (first
+                       (html/select
+                        content-html
+                        [:div.mBd :article.articleCon :div.printArea :div.conTxt])))]
+    {:title title, :content content}))
+
+(comment
+  (html/text
+   (first
+    (html/select
+     (get-page-article-content-html "http://www.sxszjzx.com/xydt/xyxw/content_39935")
+     [:h2.title]))))
+#+end_src
+
+** TODO process the crawled article content text [0/1]
+   :LOGBOOK:
+   - State "TODO"       from              [2018-11-21 Wed 22:22]
+   :END:
+
+*** TODO strip some special characters and spaces
+      :LOGBOOK:
+      CLOCK: [2018-11-22 Thu 14:59]--[2018-11-22 Thu 15:13] =>  0:14
+      CLOCK: [2018-11-22 Thu 08:45]--[2018-11-22 Thu 08:57] =>  0:12
+      - State "TODO"       from              [2018-11-21 Wed 22:22]
+      :END:
+
+- [ ] \n
+- [ ] _
+
+#+begin_src clojure
+
+#+end_src
+
+** TODO auto find content element
+     :LOGBOOK:
+     - State "TODO"       from              [2018-11-19 Mon 13:55]
+     :END:
+
+How to auto find the max scope content element's text. So that crawler can auto extract
+the text. No need the selector rules.
+
+* TODO store.clj 爬虫内容存储到数据库 [3/4]
+  :LOGBOOK:
+  - State "TODO"       from              [2018-11-18 Sun 11:36]
+  :END:
+
+** DONE SQLite
+   CLOSED: [2018-11-22 Thu 10:28]
+     :LOGBOOK:
+     - State "DONE"       from "TODO"       [2018-11-22 Thu 10:28]
+     CLOCK: [2018-11-22 Thu 08:57]--[2018-11-22 Thu 09:29] =>  0:32
+     - State "TODO"       from "DONE"       [2018-11-21 Wed 22:22]
+     - State "DONE"       from "TODO"       [2018-11-21 Wed 22:12]
+     CLOCK: [2018-11-21 Wed 22:11]--[2018-11-21 Wed 22:12] =>  0:01
+     - State "TODO"       from "DONE"       [2018-11-20 Tue 22:04]
+     CLOCK: [2018-11-20 Tue 22:04]--[2018-11-20 Tue 22:13] =>  0:09
+     CLOCK: [2018-11-18 Sun 16:23]--[2018-11-18 Sun 16:25] =>  0:02
+     - State "DONE"       from              [2018-11-18 Sun 16:14] \\
+       create table, insert records.
+     CLOCK: [2018-11-18 Sun 16:11]--[2018-11-18 Sun 16:14] =>  0:03
+     :END:
+
+#+begin_src clojure
+(defn save-to-sqlite
+  "Save data into SQLite DB."
+  [title article]
+  (jdbc/with-db-connection [db sqlite]
+    (jdbc/insert! db :articles {:title   title ; TODO: do I need insert the `:id`?
+                                :article article})))
+
+
+(defn save-all-articles-to-sqlite
+  []
+  (for [article (crawler/crawl-website-old-articles)]
+    (save-to-sqlite (key article) (val article))))
+#+end_src
+
+*** DONE detect table exist?
+    CLOSED: [2018-11-22 Thu 10:08]
+      :LOGBOOK:
+      - State "DONE"       from "TODO"       [2018-11-22 Thu 10:08]
+      - State "TODO"       from              [2018-11-22 Thu 10:08]
+      :END:
+
+Use ~{:conditional? true}~ for ~jdbc/create-table-ddl~.
+
+*** DONE save title and content to SQLite
+    CLOSED: [2018-11-22 Thu 10:28]
+      :LOGBOOK:
+      - State "DONE"       from "TODO"       [2018-11-22 Thu 10:28]
+      - State "TODO"       from              [2018-11-22 Thu 10:12]
+      CLOCK: [2018-11-22 Thu 10:12]--[2018-11-22 Thu 10:28] =>  0:16
+      :END:
+
+#+begin_src clojure
+(defn all-links-in-redis
+  "Get all links in Redis."
+  [website-key]
+  (wcar*
+   ;; (redis/hgetall website-key)
+   (redis/hvals website-key)))
+
+(defn crawl-website-old-articles []
+  "Crawl all articles of website old."
+  (crawl-website-old-articles)
+  (for [link (all-links-in-redis :old/links)]
+    (let [page (old/parse-article-title-and-content link)]
+      (store/save-to-sqlite :old (:title page) (:content page)))))
+
+(comment
+  (let [kk (old/parse-article-title-and-content (first (all-links-in-redis :old/links)))]
+    (store/save-to-sqlite :old (:title kk) (:content kk))))
+
+(defn crawl-website-new-articles []
+  "Crawl all articles of website new."
+  (crawl-website-new-links)
+  (for [link (all-links-in-redis :new/links)]
+    (let [page (new/parse-article-title-and-content link)]
+      (store/save-to-sqlite :new (:title page) (:content page)))))
+
+(comment
+  (let [kk (new/parse-article-title-and-content (first (all-links-in-redis :new/links)))]
+    (store/save-to-sqlite :new (:title kk) (:content kk))))
+#+end_src
+
+** TODO MongoDB
+   :LOGBOOK:
+   - State "TODO"       from              [2018-11-21 Wed 22:12]
+   :END:
+
+* TODO validate.clj (检查页面的可用性)
+  :LOGBOOK:
+  - State "TODO"       from              [2018-11-18 Sun 11:57]
+  :END:
+
+** Validate Links
+
+** Validate Images
+
+** Validate Videos
+
+** Validate Docs
+
+* TODO compare.clj 对比文章
+    :LOGBOOK:
+    - State "TODO"       from              [2018-11-18 Sun 11:36]
+    :END:
+
+- [X] 对比文章标题
+
+- [ ] 对比html页面中的img，video之类的tags的数量和类型。
+
+** TODO compare.clj 比较页面的相似性 [0/1]
+     :LOGBOOK:
+     - State "TODO"       from              [2018-11-06 Tue 17:23]
+     :END:
+
+- [ ] 对比文字部分tag的内容，用MD5之类的digest算法
+
+- [[file:~/Org/Wiki/Computer%20Technology/Programming/Algorithm/Data/Manuals/My%20Algorithms%20Reference/SimHash.org::*Intro][SimHash]]
+- [[file:~/Org/Wiki/Computer%20Technology/Programming/Algorithm/Data/Manuals/My%20Algorithms%20Reference/MinHash.org::*Intro][MinHash]]
+
+- [ ] search Simhash Java libraries [[file:~/Org/Wiki/Computer%20Technology/Programming/Algorithm/Data/Manuals/My%20Algorithms%20Reference/SimHash.org::*Java][Java MinHash]]
+
+* DONE 比较上传视频
+  CLOSED: [2018-09-26 Wed 19:08]
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2018-09-26 Wed 19:08]
+  - State "TODO"       from              [2018-09-25 Tue 17:29]
+  :END:
+
+** DONE 旧网站的视频
+   CLOSED: [2018-09-26 Wed 19:08]
+     :LOGBOOK:
+     - State "DONE"       from "TODO"       [2018-09-26 Wed 19:08]
+     - State "TODO"       from              [2018-09-25 Tue 19:08]
+     :END:
+
+#+NAME: define-old-website-url
+#+begin_src clojure
+(def website-old-url "http://www.sxti.zj.cn")
+#+end_src
+
+#+RESULTS[<2018-10-16 15:00:43> 8e23b17e4d15ff1c87aac18a278bbb025bfcfcef]: define-old-website-url
+: nil#'user/website-new-url
+
+get a video link in list example:
+
+#+begin_src clojure :results output :wrap "src clojure :eval no"
+(pprint
+ (first
+  (:content
+   (first
+    (html/select
+     (-> (:body
+          (http/get
+           (format (str website-old-url "/e/action/ListInfo/index.php?classid=10&page=%s") 0)
+           {:as "GB2312"}))
+         html/html-snippet
+         (html/select [:.imgList1]))
+     [:ul])))))
+#+end_src
+
+#+RESULTS[<2018-09-26 17:37:50> 7b44f9c1c3c5769ce8235695f5ae76f0d7eb4ca1]:
+#+begin_src clojure :eval no
+{:tag :li,
+ :attrs nil,
+ :content
+ ({:tag :a,
+   :attrs
+   {:href "/e/action/ShowInfo.php?classid=173&id=15401",
+    :target "_blank"},
+   :content
+   ({:tag :img,
+     :attrs
+     {:src
+      "/d/file/html/news/4/4/2018-09-07/small29350dd5474f452348699de611ad62f8.jpg",
+      :alt "心理课堂六",
+      :width "220",
+      :height "180"},
+     :content nil})}
+  {:tag :div, :attrs {:class "movie1"}, :content nil}
+  {:tag :h1,
+   :attrs nil,
+   :content
+   ({:tag :a,
+     :attrs
+     {:href "/e/action/ShowInfo.php?classid=173&id=15401",
+      :title "心理课堂六",
+      :target "_blank"},
+     :content ("心理课堂六")})})}
+#+end_src
+
+#+begin_src clojure :eval no
+{:tag     :li,
+ :attrs   nil,
+ :content ({:tag     :a,
+            :attrs   {:href "/e/action/ShowInfo.php?classid=378&id=12761", :target "_blank"},
+            :content ({:tag :img, :attrs {:src "/d/file/html/news/4/5/2017-05-24/small9bfeabf676860034d33a510fcd583c35.jpg", :alt "重拾自我---16旅服高工", :width "220", :height "180"}, :content nil})
+            }
+           {:tag     :div,
+            :attrs   {:class "movie1"},
+            :content nil}
+           {:tag     :h1,
+            :attrs   nil,
+            :content ({:tag     :a,
+                       :attrs   {:href "/e/action/ShowInfo.php?classid=378&id=12761", :title "重拾自我---16旅服高工", :target "_blank"}
+                       :content ("重拾自我---16旅服高工")})
+            })}
+#+end_src
+
+#+NAME: extract-video-page-info-old
+#+begin_src clojure :results output
+;;; get first list page for testing
+(comment
+  (def page-list
+    (-> (:body
+         (http/get
+          (format (str website-old-url "/e/action/ListInfo/index.php?classid=10&page=%s") 0)
+          {:as "GB2312"}))
+        html/html-snippet
+        (html/select [:.imgList1]))))
+
+(defn- extract-video-page-content [page]
+  (-> (:body
+       (http/get
+        (format (str website-old-url "/e/action/ListInfo/index.php?classid=10&page=%s") page)
+        {:as "GB2312"}))
+      html/html-snippet
+      (html/select [:.imgList1])))
+
+;;; get all title and URL
+(defn- extract-video-link [node]
+  (let [lists ((juxt #(first (html/attr-values % :href))
+                     #(first (html/attr-values % :title)))
+               (-> node
+                   (html/select [:h1 :a])
+                   first))]
+    {(second lists)
+     ;; construct url
+     (str website-old-url (first lists))}))
+
+(comment
+  (map
+   extract-video-link
+   (html/select-nodes* (html/select page-list [:ul]) [:li])))
+#+end_src
+
+#+RESULTS[<2018-10-16 14:51:46> c93a85f8a06485728b2f1196ae9883d418693abb]: extract-video-page-info-old
+
+#+NAME: extract-video-pages-max-old
+#+begin_src clojure :results output
+(defn extract-page-videos-maxpage-old
+  "Get the max page number of http://www.sxti.zj.cn/e/action/ListInfo/?classid=10"
+  [url]
+  (let [last_page (-> (:body (http/get url {:as "GB2312"}))
+                      html/html-snippet
+                      (html/select [:div.yema1])
+                      first
+                      :content
+                      last)]
+    (if (= (first (:content last_page)) "尾页")
+      ;; (print (format "http://www.sxti.zj.cn/%s" (first (html/attr-values last_page :href))))
+      (Integer. (first (re-seq #"\d+"
+                               (re-find #"page=\d+&" (first (html/attr-values last_page :href)))))))
+    ))
+
+(print (extract-page-videos-maxpage-old (str website-old-url "/e/action/ListInfo/?classid=10")))
+#+end_src
+
+#+RESULTS[<2018-10-16 14:52:02> 31e133a58367607c7fa9b82af3c7f570029ceaa5]: extract-video-pages-max-old
+: 13
+
+#+RESULTS[<2018-10-16 14:51:54> bdecab31eb8bad0dfc2c2d281094d39fe174346c]: extract-video-pages-max-old
+
+#+NAME: website-old-videos
+#+begin_src clojure :results output :noweb yes
+<<define-old-website-url>>
+<<extract-video-page-info-old>>
+<<extract-video-pages-max-old>>
+
+(def videos-links-old
+  (reduce
+   merge
+   (reduce
+    concat
+    (for [n (range 0 (extract-page-videos-maxpage-old (str website-old-url "/e/action/ListInfo/?classid=10")))]
+      (map
+       #(-> %
+            extract-video-link)
+       (html/select-nodes*
+        (html/select (extract-video-page-content n) [:ul])
+        [:li]))))))
+
+(pprint videos-links-old)
+#+end_src
+
+** DONE 新网站的视频
+   CLOSED: [2018-09-26 Wed 19:08]
+     :LOGBOOK:
+     - State "DONE"       from "TODO"       [2018-09-26 Wed 19:08]
+     - State "TODO"       from              [2018-09-26 Wed 19:08]
+     :END:
+
+#+NAME: define-new-website-url
+#+begin_src clojure
+(def website-new-url "http://www.sxszjzx.com/")
+;; (def website-new-url "http://zjzx.sxsedu.net")
+#+end_src
+
+#+RESULTS[<2018-10-16 15:00:48> 8e23b17e4d15ff1c87aac18a278bbb025bfcfcef]: define-new-website-url
+: nil#'user/website-new-url
+
+get a video link in list example:
+
+#+begin_src clojure :results output :wrap "src clojure :eval no"
+(pprint
+ (first
+  (html/select
+   (-> (:body
+        (http/get
+         (format (str website-new-url "/ztlm/xysp_%s") 1)))
+       html/html-snippet
+       (html/select [:ul.vedioPageList]))
+   [:li :h3 :a])))
+#+end_src
+
+#+RESULTS[<2018-09-26 18:17:55> 39b3df9d73f6b7097134604eaac14ecbf5b69f10]:
+#+begin_src clojure :eval no
+{:tag :a,
+ :attrs {:href "/ztlm/xysp/zycz/content_129", :title "《青春 梦想》 14大专动漫"},
+ :content ("《青春 梦想》 14大专动漫")}
+#+end_src
+
+#+NAME: extract-video-pages-max-new
+#+begin_src clojure :results output :var maxpage-new=12
+(defn extract-page-videos-maxpage-new
+  "Get the max page number of http://www.sxszjzx.com/ztlm/xysp."
+  [url]
+  (Integer.
+   (clojure.string/replace
+    (re-find #"/*\d+页"
+             (-> (:body (http/get url))
+                 html/html-snippet
+                 (html/select [:div.page :span.total])
+                 first
+                 :content
+                 first))
+    "页" "")))
+
+(print (extract-page-videos-maxpage-new (str website-new-url "/ztlm/xysp")))
+#+end_src
+
+#+RESULTS[<2018-10-16 14:53:52> 884b1dc0bed5801aa1390c51853ad8e338bd07e3]: extract-video-pages-max-new
+: 14
+
+#+RESULTS[<2018-10-16 14:53:27> 92e10ba363a1a208d764be2f96efcc2f1e4a5be4]: extract-video-pages-max-new
+
+#+NAME: website-new-videos
+#+begin_src clojure :results output :noweb yes
+<<define-new-website-url>>
+<<extract-video-pages-max-new>>
+
+(def videos-links-new
+  (reduce
+   merge
+   (reduce
+    concat
+    (for [n (range 1 (extract-page-videos-maxpage-new (str website-new-url "/ztlm/xysp")))]
+      (map
+       (fn [a]
+         {(first (html/attr-values a :title))
+          (str "http://zjzx.sxsedu.net" (first (html/attr-values a :href)))})
+       (html/select
+        (-> (:body
+             (http/get
+              (format "http://zjzx.sxsedu.net/ztlm/xysp_%s" n)))
+            html/html-snippet
+            (html/select [:ul.vedioPageList]))
+        [:li :h3 :a]))))))
+
+(pprint videos-links-new)
+#+end_src
+
+#+RESULTS[<2018-10-19 12:59:35> cfca4a1dc631ae85632c2ea6b80bdc6670477ee9]: website-new-videos
+#+begin_example
+14{"纪念刘和珍君" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_106",
+ "走近绍兴黄酒1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_76",
+ "《青春" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_129",
+ "人生因设计而美丽2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_90",
+ "3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_94",
+ "基本站姿组合手位1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_84",
+ "计数原理" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_97",
+ "《展望未来我们的明天会更加精彩》14大专城建"
+ "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_132",
+ "Art" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_93",
+ "动画动作修饰2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_86",
+ "绞孔攻螺纹3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_83",
+ "方言与普通话2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_107",
+ "07-课堂礼仪" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_119",
+ "色彩空间" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_101",
+ "局域网配置综合实训3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_75",
+ "——有一种爱叫做亲情" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_37",
+ "我被十三所学校开除(2)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_28",
+ "中央电视台-开学第一课" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_141",
+ "人生因设计而美丽1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_89",
+ "王金云" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_128",
+ "前厅模拟接待" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_66",
+ "人生因设计而美丽3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_91",
+ "重拾自我---16旅服高工" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_136",
+ "Body" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_63",
+ "2017年学第二学期开学第一课" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_61",
+ "The" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_104",
+ "《拾梦者》" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_138",
+ "室内操" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_21",
+ "懂得体贴孝敬父母－下" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_112",
+ "第二届三字经PK赛" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_41",
+ "08-校园礼仪" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_120",
+ "12-社会交往（下）" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_124",
+ "绞孔攻螺纹1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_81",
+ "我喜欢我的学校（校园生活纪录）" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_51",
+ "葛豪焙" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_135",
+ "孝亲尊师电视特别节目（三）" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_39",
+ "礼仪操" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_46",
+ "05-教师的装饰" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_117",
+ "永恒的舞台" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_53",
+ "全国人口普查中小学生一堂课动画短剧"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_31",
+ "纺织贸易实务" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_68",
+ "心理课堂六" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_126",
+ "我和我的学校（浙江省影视大赛第一名作品）"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_52",
+ "社团成果展示片" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_49",
+ "2014预科生活——预习青春" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_59",
+ "01-教师礼仪概述" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_113",
+ "孝亲尊师电视特别节目(二)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_38",
+ "绍兴市职教中心建校50周年校庆" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_139",
+ "第三套中学生广播体操-舞动青春分解示范"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_23",
+ "商务学区班主任论坛2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_96",
+ "一个人---15大专动漫" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_137",
+ "合情推理3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_80",
+ "商务学区班主任论坛1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_95",
+ "直系电机系统故障排除" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_69",
+ "礼仪教育视频" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_125",
+ "健康消费\"茶文化知识讲座(2)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_33",
+ "开学第一课（2011年9月1日）"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_140",
+ "14计算机1班" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_134",
+ "健康消费\"茶文化知识讲座(3)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_34",
+ "《青春誓言》13美术高考2班" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_133",
+ "绞孔攻螺纹2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_82",
+ "《技能成就梦想》13大专机电徐俊亮、傅卓楷"
+ "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_131",
+ "第五十八届田径运动会" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_43",
+ "职教三字经PK赛1" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_26",
+ "10-师生关系" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_122",
+ "2017新生军训纪录片" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_60",
+ "健康消费\"茶文化知识讲座(4)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_35",
+ "《正步人生》绍兴市职教中心2010军训特别节目"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_142",
+ "邹越：让生命充满爱" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_29",
+ "基本站姿组合手位3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_88",
+ "懂得体贴孝敬父母－中" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_111",
+ "合情推理1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_72",
+ "绍兴市职教中心2011军训特别节目"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_40",
+ "艺术教育特色宣传片" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_25",
+ "04-教师的语言" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_116",
+ "“国家改革发展示范校”建设纪实" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_55",
+ "徐涵宗" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_130",
+ "\"走进\"世贸" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_100",
+ "房志成" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_127",
+ "11-社会交往（上）" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_123",
+ "我被十三所学校开除(1)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_27",
+ "方言与普通话3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_70",
+ "茶为国饮" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_36",
+ "职教之歌" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_56",
+ "学会节俭，不做奢侈的孩子－上" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_108",
+ "绍兴市职教中心" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_18",
+ "第三套中学生广播体操-舞动青春完整音乐"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_24",
+ "方言与普通话1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_105",
+ "06-教师的仪表" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_118",
+ "局域网配置综合实训2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_74",
+ "合情推理2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_78",
+ "走近绍兴黄酒2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_77",
+ "学会节俭，不做奢侈的孩子－下" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_109",
+ "神神慢" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_103",
+ "走近绍兴黄酒3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_79",
+ "2007校园文化节" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_19",
+ "09-办公室礼仪" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_121",
+ "石膏像的打形" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_67",
+ "新兴力量的崛起" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_98",
+ "多彩的消费" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_64",
+ ...}
+#+end_example
+
+** DONE 两个视频数据集合比较
+   CLOSED: [2018-09-26 Wed 19:08]
+     :LOGBOOK:
+     - State "DONE"       from "TODO"       [2018-09-26 Wed 19:08]
+     - State "TODO"       from              [2018-09-26 Wed 19:08]
+     :END:
+
+#+begin_src clojure :noweb yes :results output
+(require '[clojure.set :as set])
+
+<<website-old-videos>>
+<<website-new-videos>>
+
+(println "--------------------------------------")
+
+(map
+ println
+ (set/difference
+  (set (keys videos-links-old))
+  (set (keys videos-links-new))))
+#+end_src
+
+#+RESULTS[<2018-10-19 13:01:09> 4f6394b85c38bf724746cd36e1a1142c4b949cea]:
+#+begin_example
+13{nil "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5601",
+ "十月主题演讲比赛"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=13200",
+ "纪念刘和珍君"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=6427",
+ "走近绍兴黄酒1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5658",
+ "《青春"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11369",
+ "人生因设计而美丽2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5638",
+ "3" "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5687",
+ "基本站姿组合手位1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5634",
+ "计数原理"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5599",
+ "《展望未来我们的明天会更加精彩》14大专城建"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11373",
+ "Art"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5685",
+ "动画动作修饰2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5665",
+ "绞孔攻螺纹3"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5663",
+ "方言与普通话2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5669",
+ "07-课堂礼仪"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5531",
+ "色彩空间"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5603",
+ "局域网配置综合实训3"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5655",
+ "中央电视台-开学第一课"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5564",
+ "人生因设计而美丽1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5637",
+ "王金云"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11368",
+ "我的学校（专业选报指导）"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=6434",
+ "人生因设计而美丽3"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5639",
+ "重拾自我---16旅服高工"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=12761",
+ "2017年学第二学期开学第一课"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=14247",
+ "The"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5598",
+ "《拾梦者》"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11375",
+ "室内操"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5628",
+ "懂得体贴孝敬父母－下"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5572",
+ "08-校园礼仪"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5532",
+ "预防电信网络诈骗专题讲座"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=13151",
+ "12-社会交往（下）"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5536",
+ "绞孔攻螺纹1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5661",
+ "我喜欢我的学校（校园生活纪录）"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=6438",
+ "葛豪焙"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11376",
+ "我被十三所学校开除1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5558",
+ "母亲节"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=9315",
+ "礼仪操"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=6428",
+ "05-教师的装饰"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5529",
+ "永恒的舞台"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=6440",
+ "全国人口普查中小学生一堂课动画短剧"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5556",
+ "纺织贸易实务"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5751",
+ "心理课堂六"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=15401",
+ "我和我的学校（浙江省影视大赛第一名作品）"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=6439",
+ "社团成果展示片"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=6436",
+ "01-教师礼仪概述"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5521",
+ "孝亲尊师电视特别节目(二)"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5496",
+ "绍兴市职教中心建校50周年校庆"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5630",
+ "第三套中学生广播体操-舞动青春分解示范"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5612",
+ "共创美好未来”大合唱比赛决赛"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=15167",
+ "商务学区班主任论坛2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5641",
+ "一个人---15大专动漫"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=12762",
+ "合情推理3"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5633",
+ "商务学区班主任论坛1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5640",
+ "直系电机系统故障排除"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5755",
+ "礼仪教育视频"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=6429",
+ "开学第一课（2011年9月1日）"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5491",
+ "14计算机1班"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11374",
+ "2017校园新歌声总决赛"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=13711",
+ "《青春誓言》13美术高考2班"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11372",
+ "绞孔攻螺纹2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5662",
+ "《技能成就梦想》13大专机电徐俊亮、傅卓楷"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11371",
+ "第五十八届田径运动会"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5831",
+ "职教三字经PK赛1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5589",
+ "10-师生关系"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5534",
+ "2017新生军训纪录片"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=13117",
+ "《正步人生》绍兴市职教中心2010军训特别节目"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5557",
+ "邹越：让生命充满爱"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5560",
+ "2014预科生活――预习青春"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=9374",
+ "基本站姿组合手位3"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5636",
+ "懂得体贴孝敬父母－中"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5571",
+ "我被十三所学校开除2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5559",
+ "合情推理1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5631",
+ "绍兴市职教中心2011军训特别节目"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5440",
+ "艺术教育特色宣传片"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5607",
+ "04-教师的语言"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5528",
+ "“国家改革发展示范校”建设纪实"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=8017",
+ "徐涵宗"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11370",
+ "房志成"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=378&id=11367",
+ "11-社会交往（上）"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5535",
+ "方言与普通话3"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5670",
+ "我的学校―绍兴市职教中心"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=6435",
+ "茶为国饮"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5550",
+ "职教之歌"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=8288",
+ "学会节俭，不做奢侈的孩子－上"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5566",
+ "第三套中学生广播体操-舞动青春完整音乐"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5613",
+ "方言与普通话1"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5668",
+ "06-教师的仪表"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5530",
+ "职教三字经PK赛2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5590",
+ "局域网配置综合实训2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5654",
+ "合情推理2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5632",
+ "走近绍兴黄酒2"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5659",
+ "学会节俭，不做奢侈的孩子－下"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5569",
+ "神神慢"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5604",
+ "走近绍兴黄酒3"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5660",
+ "09-办公室礼仪"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=173&id=5533",
+ "新兴力量的崛起"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5600",
+ "藏族民族风情"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5605",
+ "07级新生军训"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5828",
+ "动画动作修饰3"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=172&id=5666",
+ "孝亲尊师电视特别节目(二)成长足迹"
+ "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=171&id=5495",
+ ...}
+14{"纪念刘和珍君" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_106",
+ "走近绍兴黄酒1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_76",
+ "《青春" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_129",
+ "人生因设计而美丽2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_90",
+ "3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_94",
+ "基本站姿组合手位1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_84",
+ "计数原理" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_97",
+ "《展望未来我们的明天会更加精彩》14大专城建"
+ "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_132",
+ "Art" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_93",
+ "动画动作修饰2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_86",
+ "绞孔攻螺纹3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_83",
+ "方言与普通话2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_107",
+ "07-课堂礼仪" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_119",
+ "色彩空间" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_101",
+ "局域网配置综合实训3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_75",
+ "——有一种爱叫做亲情" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_37",
+ "我被十三所学校开除(2)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_28",
+ "中央电视台-开学第一课" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_141",
+ "人生因设计而美丽1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_89",
+ "王金云" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_128",
+ "前厅模拟接待" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_66",
+ "人生因设计而美丽3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_91",
+ "重拾自我---16旅服高工" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_136",
+ "Body" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_63",
+ "2017年学第二学期开学第一课" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_61",
+ "The" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_104",
+ "《拾梦者》" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_138",
+ "室内操" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_21",
+ "懂得体贴孝敬父母－下" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_112",
+ "第二届三字经PK赛" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_41",
+ "08-校园礼仪" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_120",
+ "12-社会交往（下）" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_124",
+ "绞孔攻螺纹1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_81",
+ "我喜欢我的学校（校园生活纪录）" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_51",
+ "葛豪焙" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_135",
+ "孝亲尊师电视特别节目（三）" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_39",
+ "礼仪操" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_46",
+ "05-教师的装饰" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_117",
+ "永恒的舞台" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_53",
+ "全国人口普查中小学生一堂课动画短剧"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_31",
+ "纺织贸易实务" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_68",
+ "心理课堂六" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_126",
+ "我和我的学校（浙江省影视大赛第一名作品）"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_52",
+ "社团成果展示片" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_49",
+ "2014预科生活——预习青春" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_59",
+ "01-教师礼仪概述" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_113",
+ "孝亲尊师电视特别节目(二)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_38",
+ "绍兴市职教中心建校50周年校庆" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_139",
+ "第三套中学生广播体操-舞动青春分解示范"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_23",
+ "商务学区班主任论坛2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_96",
+ "一个人---15大专动漫" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_137",
+ "合情推理3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_80",
+ "商务学区班主任论坛1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_95",
+ "直系电机系统故障排除" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_69",
+ "礼仪教育视频" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_125",
+ "健康消费\"茶文化知识讲座(2)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_33",
+ "开学第一课（2011年9月1日）"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_140",
+ "14计算机1班" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_134",
+ "健康消费\"茶文化知识讲座(3)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_34",
+ "《青春誓言》13美术高考2班" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_133",
+ "绞孔攻螺纹2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_82",
+ "《技能成就梦想》13大专机电徐俊亮、傅卓楷"
+ "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_131",
+ "第五十八届田径运动会" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_43",
+ "职教三字经PK赛1" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_26",
+ "10-师生关系" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_122",
+ "2017新生军训纪录片" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_60",
+ "健康消费\"茶文化知识讲座(4)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_35",
+ "《正步人生》绍兴市职教中心2010军训特别节目"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_142",
+ "邹越：让生命充满爱" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_29",
+ "基本站姿组合手位3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_88",
+ "懂得体贴孝敬父母－中" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_111",
+ "合情推理1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_72",
+ "绍兴市职教中心2011军训特别节目"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_40",
+ "艺术教育特色宣传片" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_25",
+ "04-教师的语言" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_116",
+ "“国家改革发展示范校”建设纪实" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_55",
+ "徐涵宗" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_130",
+ "\"走进\"世贸" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_100",
+ "房志成" "http://zjzx.sxsedu.net/ztlm/xysp/zycz/content_127",
+ "11-社会交往（上）" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_123",
+ "我被十三所学校开除(1)" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_27",
+ "方言与普通话3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_70",
+ "茶为国饮" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_36",
+ "职教之歌" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_56",
+ "学会节俭，不做奢侈的孩子－上" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_108",
+ "绍兴市职教中心" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_18",
+ "第三套中学生广播体操-舞动青春完整音乐"
+ "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_24",
+ "方言与普通话1" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_105",
+ "06-教师的仪表" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_118",
+ "局域网配置综合实训2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_74",
+ "合情推理2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_78",
+ "走近绍兴黄酒2" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_77",
+ "学会节俭，不做奢侈的孩子－下" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_109",
+ "神神慢" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_103",
+ "走近绍兴黄酒3" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_79",
+ "2007校园文化节" "http://zjzx.sxsedu.net/ztlm/xysp/xnhd/content_19",
+ "09-办公室礼仪" "http://zjzx.sxsedu.net/ztlm/xysp/jysp/content_121",
+ "石膏像的打形" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_67",
+ "新兴力量的崛起" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_98",
+ "多彩的消费" "http://zjzx.sxsedu.net/ztlm/xysp/jxfc/content_64",
+ ...}
+--------------------------------------
+nil
+十月主题演讲比赛
+我的学校（专业选报指导）
+预防电信网络诈骗专题讲座
+我被十三所学校开除1
+母亲节
+共创美好未来”大合唱比赛决赛
+2017校园新歌声总决赛
+2014预科生活――预习青春
+我被十三所学校开除2
+我的学校―绍兴市职教中心
+职教三字经PK赛2
+孝亲尊师电视特别节目(二)成长足迹
+孝亲尊师电视特别节目(一)---有一种爱叫做亲情
+#+end_example
+
+** DONE 检查新网站视频的缩略图是否存在
+   CLOSED: [2018-10-11 Thu 15:00] SCHEDULED: <2018-10-11 Thu>
+     :LOGBOOK:
+     - State "DONE"       from "DONE"       [2018-10-11 Thu 17:36]
+     - State "DONE"       from "TODO"       [2018-10-11 Thu 15:00]
+     - State "TODO"       from              [2018-10-11 Thu 14:01]
+     :END:
+
+failed thumbnail example: http://www.sxszjzx.com/ztlm/xysp_4
+
+\\Content\\_Common\\Base\\img\\error-translation_240_160.gif
+
+#+begin_src html
+<li>
+    <div class="pic">
+        <a href="/ztlm/xysp/xnhd/content_43">
+            <img alt="第五十八届田径运动会" src="\Content\_Common\Base\img\error-translation_240_160.gif" width="240" height="160">
+        </a>
+    </div>
+    <h3 class="title">
+        <a href="/ztlm/xysp/xnhd/content_43" title="第五十八届田径运动会">第五十八届田径运动会</a>
+    </h3>
+    <span class="titleBg"></span>
+</li>
+#+end_src
+
+#+NAME: extract page videos
+#+begin_src clojure :var maxpage-new=14 :results output
+(defn extract-page-video-links
+  "Extract all video links from web page."
+  [url]
+  ;; div>a
+  (html/select
+   (-> (:body
+        (http/get url))
+       html/html-snippet
+       (html/select [:ul.vedioPageList]))
+   [:li :div.pic :a]))
+
+(defn extract-page-video-filename
+  "Extract video filename from web page."
+  [url]
+  (last
+   (clojure.string/split
+    (first
+     (html/attr-values
+      (first
+       (-> (:body (http/get url))
+           html/html-snippet
+           (html/select [:div.vedioPlayer :div])))
+      :data-url))
+    #"video/")))
+
+(defn extract-page-videos-maxpage
+  "Get the max page number of http://www.sxszjzx.com/ztlm/xysp."
+  [url]
+  (Integer.
+   (clojure.string/replace
+    (re-find #"/*\d+页"
+             (-> (:body (http/get url))
+                 html/html-snippet
+                 (html/select [:div.page :span.total])
+                 first
+                 :content
+                 first))
+    "页" "")))
+
+;; (extract-page-videos-maxpage "http://www.sxszjzx.com/ztlm/xysp")
+#+end_src
+
+#+begin_src clojure :noweb yes :results output
+<<extract page videos>>
+
+(for [n (range 1 (extract-page-videos-maxpage-new "http://www.sxszjzx.com/ztlm/xysp"))]
+  (map
+   (fn [a]
+     (let [img            (first (html/select a [:img]))
+           img-src        (first (html/attr-values img :src))
+           title          (first (html/attr-values img :alt))
+           video-page-url (str "http://www.sxszjzx.com" (first (html/attr-values a :href)))]
+       (when (and (not (clojure.string/blank? img-src))
+                  (re-find #"\\Content*" img-src))
+         ;; get video info link
+         (print {title video-page-url})
+         ;; get video filename
+         (println
+          (extract-page-video-filename
+           (str "http://www.sxszjzx.com" (first (html/attr-values a :href))))))))
+   (extract-page-video-links (format "http://www.sxszjzx.com/ztlm/xysp_%s" n))))
+#+end_src
+
+#+RESULTS[<2018-10-16 15:00:05> 4c0092ec2c05b70d98b0ba30aae6b8f2ce3c5347]:
+
+** DONE 获取新网站视频页面的视频源信息
+   CLOSED: [2018-10-21 Sun 11:02]
+     :LOGBOOK:
+     - State "DONE"       from              [2018-10-21 Sun 11:02]
+     :END:
+
+http://www.sxszjzx.com/ztlm/xysp/zycz/content_129
+
+#+NAME: website-new-video-page-extract-info
+#+begin_src clojure :noweb yes :results pp
+<<define-new-website-url>>
+
+(defn website-new-video-page-extract-info
+  [url]
+  (let [video-object (-> (:body (http/get url))
+                         html/html-snippet
+                         (html/select [:div.vedioPlayer :div])
+                         first)]
+    {(apply str (html/attr-values video-object :data-title))
+     (str website-new-url (first (html/attr-values video-object :data-url)))}))
+
+(website-new-video-page-extract-info "http://www.sxszjzx.com/ztlm/xysp/zycz/content_129")
+#+end_src
+
+#+RESULTS[<2018-10-21 11:02:35> b2b47cf907266e7e969c0a3440bc7a037aeae17d]: website-new-video-page-extract-info
+: {"《青春梦想》14大专动漫"
+:  "http://www.sxszjzx.com//upload/sxszjzx/contentmanage/video/2018/09/27/qcmx[自定义].mp4"}
+
+** TODO 检查视频是否可以播放 [4/5]
+     :LOGBOOK:
+     CLOCK: [2018-10-21 Sun 11:10]--[2018-10-21 Sun 12:00] =>  0:50
+     - State "TODO"       from              [2018-10-19 Fri 12:45]
+     :END:
+
+- [X] 检测视频源文件是否存在？
+  - [X] 像 [[website-new-video-page-extract-info][这个视频连接源文件地址]] 就是可以打开播放的，但是用新网站的播放器就是不行。
+  - [X] 应该是需要flash player，但是我检测我安装了flash plugin了。
+
+GET http://www.sxszjzx.com/Content/_Common/Assets/Scripts/swfobject.js?_=1540091532521
+GET http://www.sxszjzx.com/Content/_Common/Base/swf/PowerPlayback.swf
+
+When I click play button on video frame:
+
+There is a request return 404 result status:
+
+#+begin_example
+http://www.sxszjzx.com/upload/sxszjzx/contentmanage/video/2018/09/27/qcmx[
+#+end_example
+
+- [ ] 这里应该给他们报告个Bug，在Windows下请求的URL是正确的，在Linux下却是缺失部分文件名的，
+  看来是无法正确处理一些文件名中的特殊字符。
+- [X] 在Linux Firefox/Firefox Developer Edition两个浏览器下测试，因为其他的浏览器都不支持Flash。
+
+request headers:
+
+#+begin_src http
+Host: www.sxszjzx.com
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.7,zh-CN;q=0.3
+Accept-Encoding: gzip, deflate
+Referer: http://www.sxszjzx.com/Content/_Common/Base/swf/PowerPlayback.swf
+Cookie: PowerUniqueVisitor=c3f5685d-dfca-46fb-86d9-b58efc5eef6b_2018%2F10%2F21%200%3A00%3A00; PowerLeaveSitePrompts=NoShow
+DNT: 1
+Connection: keep-alive
+#+end_src
+
+response headers:
+
+#+begin_src http
+HTTP/1.1 404 Not Found
+Content-Type: text/html
+ServerResponseDuration: 15.6279ms
+X-PowerEasy-Version: 1.9.1.2
+X-PowerEasy-Product: SiteAzure
+X-Frame-Options: SAMEORIGIN
+X-XSS-Protection: 1; mode=block
+X-Content-Type-Options: nosniff
+Date: Sun, 21 Oct 2018 03:15:39 GMT
+Content-Length: 1163
+#+end_src
+
+## Usage
+
+FIXME
+
+## License
+
+Copyright © 2018 FIXME
+
+Distributed under the Eclipse Public License either version 1.0 or (at
+your option) any later version.
+
+* Use Git as Version Control System
+
+
+
