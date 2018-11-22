@@ -27,3 +27,29 @@
       (println (format "[get-html] %s" e)))))
 
 (defonce website-old-html (get-html "http://www.sxti.zj.cn/"))
+
+;;; Nav sections
+(defonce nav-bar
+  (html/select
+   (drop 1
+         (first (map #(html/select % [:li])
+                     ;; nav bar
+                     (html/select
+                      website-old-html
+                      [:html :body :div.page_all :div.head_2 :div.head_3 :ul#head_nav]))))
+   [:a]))
+
+(defonce nav-bar-links-map
+  (map #(let [link  (str website-old-url
+                         ;; :attrs nil (:href does not exist)
+                         (if (nil? (:attrs %))
+                           nil
+                           ;; :href "javascript:void(0)"
+                           (if (= (first (html/attr-values % :href)) "javascript:void(0)")
+                             nil
+                             ;; :href "/..."                            
+                             (first (html/attr-values % :href)))))
+              title (html/text %)]
+          {title link})
+       nav-bar))
+

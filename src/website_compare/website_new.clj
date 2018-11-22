@@ -27,5 +27,22 @@
 
 (defonce website-new-html (get-html website-new-url))
 
+;;; Nav sections
+(defonce nav-bar
+  (drop 1 (html/select
+           website-new-html
+           [:html :body :div.wrap :div.nav
+            :div.siteWidth :ul#mainNav.mainNav
+            :li])))
+
+;;; NOTE: Thise `(html/select % [:a])` is really smart.
+(defonce nav-bar-links-map
+  (map #(let [nav   (-> (html/select % [:a])
+                        first)
+              link  (str website-new-url (first (html/attr-values nav :href)))
+              title (html/text nav)]
+          {title link})
+       nav-bar))
+
   )
 
