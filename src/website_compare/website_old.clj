@@ -101,3 +101,26 @@
 (comment
   (get-total-result-pages "http://www.sxti.zj.cn/e/action/ListInfo/?classid=33"))
 
+(defn get-all-article-links
+  "Get a nav's all articles link and title with map as return."
+  [nav-link]
+  (let [totalnum (get-total-result-pages nav-link)]
+    (if-not (nil? totalnum) ; `totalnum` valid?
+      (try
+        (first
+         (for [n (range 1 (inc totalnum))]
+           (let [url   (str nav-link "&page=" n)
+                 links (get-page-article-links url)]
+             ;; some pages like "http://www.sxti.zj.cn/html/exemplary/about.html" return empty
+             ;; articles link. Because they are not article links result page.
+             (if-not (empty? links)
+               links))))
+        (catch NullPointerException e
+          (println (format "[get-all-article-links] %s" nav-link))
+          (println (format "[get-all-article-links] %s" e)))))))
+
+;; "http://www.sxti.zj.cn/e/action/ListInfo/index.php?classid=33&page=1&totalnum=1648"
+
+(comment
+  (get-all-article-links "http://www.sxti.zj.cn/e/action/ListInfo/?classid=19"))
+

@@ -90,3 +90,20 @@
 (comment
   (get-total-result-pages "http://www.sxszjzx.com/xydt/xyxw"))
 
+(defn get-all-article-links
+  "Get a nav's all articles link and title with map as return."
+  [nav-link]
+  (let [totalnum (get-total-result-pages nav-link)]
+    (if-not (nil? totalnum)
+      (try
+        (for [n (range 1 (inc totalnum))]
+          (let [url   (str nav-link (format "_%d" n))
+                links (get-page-article-links url)]
+            (if-not (empty? links)
+              links)))
+        (catch NullPointerException e
+          (println (format "[get-all-article-links] %s" nav-link))
+          (println (format "[get-all-article-links] %s" e)))))))
+
+(comment
+  (get-all-article-links "http://www.sxszjzx.com/xydt/xyxw"))
