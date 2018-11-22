@@ -44,5 +44,49 @@
           {title link})
        nav-bar))
 
+(defn- get-mainContent-html
+  "Get the <div class=\"mainContent\"> element."
+  [html]
+  (try
+    (html/select html [:div.mainContent])
+    (catch NullPointerException e
+      (println e))))
+
+(defn get-page-article-links
+  "Get articles list's every article link and title."
+  [nav-link]
+  (map #(let [link  (str website-new-url (first (html/attr-values % :href)))
+              title (html/text %)]
+          {title link})
+       (html/select (get-mainContent-html (get-html nav-link))
+                    [:div.mBd :ul.pageTPList :li :div.title :a.tit])))
+
+(comment
+  (map #(let [link  (str website-new-url (first (html/attr-values % :href)))
+              title (html/text %)]
+          {title link})
+       (html/select (get-mainContent-html (get-html "http://www.sxszjzx.com/ztlm/smgc"))
+                    [:div.mBd :ul.pageTPList :li :div.title :a.tit])) ; ()
+  (empty?
+   (html/select
+    (get-mainContent-html (get-html "http://www.sxszjzx.com/ztlm/smgc"))
+    [:div.mBd :ul.pageTPList :li :div.title :a.tit])) ; ()
   )
+
+(defn get-total-result-pages
+  "How much result pages?"
+  [nav-link]
+  (try
+    (Integer.
+     (second
+      (re-find #"/共(.*)页"
+               (html/text
+                (first (html/select (get-mainContent-html (get-html nav-link))
+                                    [:div.mBd :div.page :span.total]))))))
+    (catch Exception e
+      (println nav-link)
+      (println e))))
+
+(comment
+  (get-total-result-pages "http://www.sxszjzx.com/xydt/xyxw"))
 

@@ -53,3 +53,51 @@
           {title link})
        nav-bar))
 
+(defn- get-mainContent-html
+  "Get the <div class=\"page_right\" element."
+  [html]
+  ;; avodid the page is not the nav page situation which `get-page-article-links` and
+  ;; `get-total-result-pages` can't work correctly.
+  (try
+    (html/select html [:div.page_right])
+    (catch Exception e
+      (println (format "[get-mainContent-html] %s" e)))))
+
+(defn get-page-article-links
+  "Get articles list's every article link and title."
+  [nav-link]
+  ;; TODO: extract sub-nav from the sidebar.
+  ;; (html/select (get-mainContent-html (get-html nav-link)) [:ul.pleft_t3])
+  
+  (map #(let [link  (str website-old-url (first (html/attr-values % :href)))
+              title (html/text %)]
+          {title link})
+       (html/select (get-mainContent-html (get-html nav-link)) [:ul.newsList1 :li :a])))
+
+(comment
+  (html/select
+   (get-mainContent-html (get-html "http://www.sxti.zj.cn/e/action/ListInfo/?classid=47"))
+   [:ul.pleft_t3]))
+
+(defn get-total-result-pages
+  "How much result pages?"
+  [nav-link]
+  (try
+    (Integer.
+     (:page
+      (clojure.walk/keywordize-keys
+       (ring.util.codec/form-decode
+        (second
+         (re-find
+          #".*/e/action/ListInfo/index.php\?(.*)"
+          (first
+           (html/attr-values
+            (last (html/select (get-mainContent-html (get-html nav-link)) [:div.yema1 :a]))
+            :href))))))))
+    (catch NullPointerException e
+      (println (format "[get-total-result-pages] %s" nav-link))
+      (println (format "[get-total-result-pages] %s" e)))))
+
+(comment
+  (get-total-result-pages "http://www.sxti.zj.cn/e/action/ListInfo/?classid=33"))
+
