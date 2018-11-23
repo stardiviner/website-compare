@@ -16,44 +16,46 @@
 
 https://github.com/stardiviner/website-compare
 
-#+BEGIN: clocktable :scope subtree :maxlevel 10
-#+CAPTION: Clock summary at [2018-11-22 Thu 21:30]
-| Headline                                                             | Time    |         |         |         |      |      |
-|----------------------------------------------------------------------+---------+---------+---------+---------+------+------|
-| *Total time*                                                           | *4d 8:53* |         |         |         |      |      |
-|----------------------------------------------------------------------+---------+---------+---------+---------+------+------|
-| \_  写一个简单的爬虫加交叉对比的脚本来比较新旧网站的内容差别 [37/51] |         | 4d 8:53 |         |         |      |      |
-| \_    代码架构                                                       |         |         |    0:29 |         |      |      |
-| \_    website 新旧网站使用相同API，不同的实现 [2/2]                  |         |         |    3:55 |         |      |      |
-| \_      website-old.clj HTML elements                                |         |         |         |    0:03 |      |      |
-| \_      website-new.clj HTML elements                                |         |         |         |    0:03 |      |      |
-| \_    crawler.clj 获取所有文章的方法 [15/17]                         |         |         | 1d 2:11 |         |      |      |
-| \_      benchmarking the HTTP URL request...                         |         |         |         |    1:39 |      |      |
-| \_      按照网站的导航栏目录入口获取相应类目下的所有文章             |         |         |         | 1d 0:31 |      |      |
-| \_        old                                                        |         |         |         |         | 5:48 |      |
-| \_          get navigator bar links                                  |         |         |         |         |      | 2:39 |
-| \_          parse sub-nav page to get all listed...                  |         |         |         |         |      | 2:52 |
-| \_          iterate all result pages                                 |         |         |         |         |      | 0:17 |
-| \_        new                                                        |         |         |         |         | 2:03 |      |
-| \_          get navigator bar links                                  |         |         |         |         |      | 1:03 |
-| \_          parse sub-nav page to get all listed...                  |         |         |         |         |      | 0:09 |
-| \_          iterate all result pages                                 |         |         |         |         |      | 0:51 |
-| \_        benchmark new website two entry URL                        |         |         |         |         | 0:44 |      |
-| \_    crawler.clj 爬虫存储提取连接的数据库 [5/5]                     |         |         |    1:57 |         |      |      |
-| \_      Redis                                                        |         |         |         |    1:57 |      |      |
-| \_        extract all links in nav bar                               |         |         |         |         | 0:13 |      |
-| \_        save all links to Redis                                    |         |         |         |         | 1:00 |      |
-| \_    crawler.clj 爬取页面的内容 [3/6]                               |         |         |    0:49 |         |      |      |
-| \_      scrape the article                                           |         |         |         |    0:23 |      |      |
-| \_        old                                                        |         |         |         |         | 0:03 |      |
-| \_        new                                                        |         |         |         |         | 0:20 |      |
-| \_      process the crawled article content...                       |         |         |         |    0:26 |      |      |
-| \_        strip some special characters and spaces                   |         |         |         |         | 0:26 |      |
-| \_    store.clj 爬虫内容存储到数据库 [3/4]                           |         |         |    1:03 |         |      |      |
-| \_      SQLite                                                       |         |         |         |    1:03 |      |      |
-| \_        save title and content to SQLite                           |         |         |         |         | 0:16 |      |
-| \_    比较上传视频                                                   |         |         |    0:50 |         |      |      |
-| \_      检查视频是否可以播放 [4/5]                                   |         |         |         |    0:50 |      |      |
+#+BEGIN: clocktable :scope file :maxlevel 10
+#+CAPTION: Clock summary at [2018-11-23 Fri 14:56]
+| Headline                                                   |     Time |         |      |      |
+|------------------------------------------------------------+----------+---------+------+------|
+| *Total time*                                                 | *4d 10:45* |         |      |      |
+|------------------------------------------------------------+----------+---------+------+------|
+| website-compare [37/51]                                    | 2d 21:39 |         |      |      |
+| 代码架构                                                   |     0:29 |         |      |      |
+| website 新旧网站使用相同API，不同的实现 [2/2]              |     3:55 |         |      |      |
+| \_  website-old.clj HTML elements                          |          |    0:03 |      |      |
+| \_  website-new.clj HTML elements                          |          |    0:03 |      |      |
+| crawler.clj 获取所有文章的方法 [15/17]                     |  1d 2:11 |         |      |      |
+| \_  benchmarking the HTTP URL request...                   |          |    1:39 |      |      |
+| \_  按照网站的导航栏目录入口获取相应类目下的所有文章 [9/9] |          | 1d 0:31 |      |      |
+| \_    old                                                  |          |         | 5:48 |      |
+| \_      get navigator bar links                            |          |         |      | 2:39 |
+| \_      parse sub-nav page to get all listed...            |          |         |      | 2:52 |
+| \_      iterate all result pages                           |          |         |      | 0:17 |
+| \_    new                                                  |          |         | 2:03 |      |
+| \_      get navigator bar links                            |          |         |      | 1:03 |
+| \_      parse sub-nav page to get all listed...            |          |         |      | 0:09 |
+| \_      iterate all result pages                           |          |         |      | 0:51 |
+| \_    benchmark new website two entry URL                  |          |         | 0:44 |      |
+| crawler.clj 爬虫存储提取连接的数据库 [5/5]                 |     1:57 |         |      |      |
+| \_  Redis                                                  |          |    1:57 |      |      |
+| \_    extract all links in nav bar                         |          |         | 0:13 |      |
+| \_    save all links to Redis                              |          |         | 1:00 |      |
+| crawler.clj 爬取页面的内容 [3/6]                           |     0:49 |         |      |      |
+| \_  scrape the article                                     |          |    0:23 |      |      |
+| \_    old                                                  |          |         | 0:03 |      |
+| \_    new                                                  |          |         | 0:20 |      |
+| \_  process the crawled article content...                 |          |    0:26 |      |      |
+| \_    strip some special characters and spaces             |          |         | 0:26 |      |
+| store.clj 爬虫内容存储到数据库 [3/4]                       |     2:24 |         |      |      |
+| \_  SQLite                                                 |          |    1:03 |      |      |
+| \_    save title and content to SQLite                     |          |         | 0:16 |      |
+| \_  MongoDB                                                |          |    1:21 |      |      |
+| 比较上传视频                                               |     0:50 |         |      |      |
+| \_  检查视频是否可以播放 [4/5]                             |          |    0:50 |      |      |
+| Use Git as Version Control System                          |     0:31 |         |      |      |
 #+END:
 
 * 新旧网站的基本信息
