@@ -54,3 +54,24 @@
 (comment
   (wcar* (redis/get :new/links)))
 
+;;; crawl articles
+
+(defn- all-links-in-redis
+  "Get all links in Redis."
+  [website-key]
+  (wcar*
+   ;; (redis/hgetall website-key)
+   (redis/hvals website-key)))
+
+(defn crawl-website-old-articles []
+  "Crawl all articles of website old."
+  (crawl-website-old-articles)
+  (for [link (all-links-in-redis :old/links)]
+    ))
+
+(defn crawl-website-new-articles []
+  "Crawl all articles of website new."
+  (crawl-website-new-links)
+  (for [link (all-links-in-redis :new/links)]
+    ))
+
