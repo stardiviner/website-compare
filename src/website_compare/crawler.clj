@@ -20,7 +20,7 @@
   (wcar*
    (redis/ping)))
 
-;;;crawl links
+;;; crawl links
 
 (defn crawl-website-old-links []
   "Crawl all links of website old."
@@ -61,6 +61,12 @@
   [website-key]
   (wcar*
    ;; (redis/hgetall website-key)
+   (redis/hvals website-key)))
+
+(defn all-titles-in-redis
+  "Get all titles in Redis."
+  [website-key]
+  (wcar*
    (redis/hvals website-key)))
 
 (defn crawl-website-old-articles []
