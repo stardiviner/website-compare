@@ -5,7 +5,7 @@
   (:require [taoensso.carmine :as redis])
   (:require [website-compare.website-old :as old])
   (:require [website-compare.website-new :as new])
-  )
+  (:require [website-compare.store :as store]))
 
 ;;; Redis store crawler links
 (defonce redis-conn-pool {:pool {}
@@ -67,11 +67,13 @@
   "Crawl all articles of website old."
   (crawl-website-old-articles)
   (for [link (all-links-in-redis :old/links)]
-    ))
+    (let [content (old/parse-article-title-and-content link)]
+      (store/save-to-sqlite :old (:title content) (:content content)))))
 
 (defn crawl-website-new-articles []
   "Crawl all articles of website new."
   (crawl-website-new-links)
   (for [link (all-links-in-redis :new/links)]
-    ))
+    (let [content (new/parse-article-title-and-content link)]
+      (store/save-to-sqlite :new (:title content) (:content content)))))
 
