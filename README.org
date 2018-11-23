@@ -3263,7 +3263,26 @@ Copyright © 2018 FIXME
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
 
-* Use Git as Version Control System
+* DONE Use Git as Version Control System
+  CLOSED: [2018-11-23 Fri 08:28]
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2018-11-23 Fri 08:28]
+  CLOCK: [2018-11-23 Fri 07:57]--[2018-11-23 Fri 08:28] =>  0:31
+  - State "TODO"       from              [2018-11-23 Fri 07:57]
+  :END:
 
 
 
+
+* Generate Project Report
+
+** update project clocktable dynamic block
+
+** DONE Org Mode export
+   CLOSED: [2018-11-23 Fri 14:07]
+   :LOGBOOK:
+   - State "DONE"       from "TODO"       [2018-11-23 Fri 14:07]
+   - State "TODO"       from              [2018-11-23 Fri 13:55]
+   :END:
+
+Enable =org-latex-exp-conf-mode= to support Chinese, the =[C-c C-e l o]= to export to PDF.
