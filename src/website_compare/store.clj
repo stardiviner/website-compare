@@ -12,3 +12,18 @@
 
 (comment
   (jdbc/query sqlite "SELECT 1+1 as result"))
+
+;;; create tables
+(defn create-table
+  "Create corresponding table with passed in argument symbol as table name."
+  [table-name]
+  (jdbc/with-db-connection [db sqlite]
+    (jdbc/db-do-commands
+     db
+     (jdbc/create-table-ddl table-name
+                            {:id      "INTEGER PRIMARY KEY AUTOINCREMENT"
+                             :title   "TEXT"
+                             :article "TEXT"}
+                            {:conditional? true} ; table existence check
+                            ))))
+
