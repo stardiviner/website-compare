@@ -62,7 +62,9 @@
                  ;; SQLite
                  [org.xerial/sqlite-jdbc "3.23.1"]
                  ;; MongoDB
-
+                 [congomongo "1.0.1"]
+                 [com.novemberain/monger "3.1.0"]
+                 
                  ;; Validate
 
                  ;; Compare

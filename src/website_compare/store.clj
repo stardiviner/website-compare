@@ -1,6 +1,7 @@
 (ns website-compare.store
   (:require [clojure.java.jdbc :as jdbc])
-  (:require [website-compare.crawler :as crawler]))
+  ;; (:require [somnium.congomongo :as mongodb])
+  (:require [monger.core :as mongodb]))
 
 (def sqlite
   {:dbtype "sqlite"
