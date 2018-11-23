@@ -65,7 +65,7 @@
 
 (defn crawl-website-old-articles []
   "Crawl all articles of website old."
-  (crawl-website-old-articles)
+  (crawl-website-old-links)
   (for [link (all-links-in-redis :old/links)]
     (let [content (old/parse-article-title-and-content link)]
       (store/save-to-sqlite :old (:title content) (:content content)))))
