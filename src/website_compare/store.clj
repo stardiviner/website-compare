@@ -23,7 +23,15 @@
      (jdbc/create-table-ddl table-name
                             {:id      "INTEGER PRIMARY KEY AUTOINCREMENT"
                              :title   "TEXT"
-                             :article "TEXT"}
+                             :content "TEXT"}
                             {:conditional? true} ; table existence check
                             ))))
 
+(defn save-to-sqlite
+  "Save data into SQLite DB."
+  [table title content]
+  (create-table table)
+  (jdbc/with-db-connection [db sqlite]
+    ;; NOTE: No need to insert the `:id`.
+    (jdbc/insert! db table {:title   title
+                            :content content})))
