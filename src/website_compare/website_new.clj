@@ -107,3 +107,31 @@
 
 (comment
   (get-all-article-links "http://www.sxszjzx.com/xydt/xyxw"))
+
+(defn get-page-article-content-html
+  "Get page's article content html."
+  [url]
+  (first (html/select (get-html url) [:div.mainContent])))
+
+(defn parse-article-title-and-content
+  "Parse and extract the title and content text."
+  [url]
+  (let [content-html (get-page-article-content-html url)
+        title        (html/text
+                      (first
+                       (html/select
+                        content-html
+                        [:div.mBd :article.articleCon :div.printArea :h2.title])))
+        content      (html/text
+                      (first
+                       (html/select
+                        content-html
+                        [:div.mBd :article.articleCon :div.printArea :div.conTxt])))]
+    {:title title, :content content}))
+
+(comment
+  (html/text
+   (first
+    (html/select
+     (get-page-article-content-html "http://www.sxszjzx.com/xydt/xyxw/content_39935")
+     [:h2.title]))))

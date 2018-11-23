@@ -124,3 +124,22 @@
 (comment
   (get-all-article-links "http://www.sxti.zj.cn/e/action/ListInfo/?classid=19"))
 
+(defn get-page-article-content-html
+  "Get page's article content html."
+  [url]
+  (html/select (get-html url) [:div.page_right]))
+
+(defn parse-article-title-and-content
+  "Parse and extract the title and content text."
+  [url]
+  (let [content-html (first (get-page-article-content-html url))
+        title        (html/text (first (html/select content-html [:div.pright_t3])))
+        content      (html/text (first (html/select content-html [:div.pright_t4])))]
+    {:title title, :content content}))
+
+(comment
+  (html/text
+   (first
+    (html/select
+     (get-page-article-content "http://www.sxti.zj.cn/e/action/ShowInfo.php?classid=61&id=15533")
+     [:div.news_Content1]))))
