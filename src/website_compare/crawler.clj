@@ -56,7 +56,7 @@
 
 ;;; crawl articles
 
-(defn- all-links-in-redis
+(defn all-links-in-redis
   "Get all links in Redis."
   [website-key]
   (wcar*
