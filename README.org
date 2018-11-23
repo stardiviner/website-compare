@@ -14,6 +14,8 @@
 
 [[file:~/Documents/learning/Clojure/website-compare/project.clj][website-compare/project.clj]]
 
+https://github.com/stardiviner/website-compare
+
 #+BEGIN: clocktable :scope subtree :maxlevel 10
 #+CAPTION: Clock summary at [2018-11-22 Thu 21:30]
 | Headline                                                             | Time    |         |         |         |      |      |
